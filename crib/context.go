@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/aws/constructs-go/constructs/v10"
+
 	"github.com/smartcontractkit/crib-sdk/internal"
 )
 
