@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/crib-sdk/crib"
 	"github.com/smartcontractkit/crib-sdk/internal"
+	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
 
 	chainlinknodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 )
@@ -104,8 +105,9 @@ SecureCookies = false`,
 	// - sdk.NodeSet (main component)
 	// - sdk.HelmChart#postgres (PostgreSQL)
 	// - 3 x sdk.composite.chainlink.node.v1 (Chainlink nodes)
+	// - sdk.ClientSideApply (wait for all nodes)
 	// Each Chainlink node creates multiple sub-charts, so we expect more charts
-	is.GreaterOrEqual(len(gotCharts), 5, "Should have at least 5 charts (app, nodeset, postgres, 3 chainlink nodes)")
+	is.GreaterOrEqual(len(gotCharts), 6, "Should have at least 6 charts (app, nodeset, postgres, 3 chainlink nodes, clientsideapply)")
 
 	// Verify PostgreSQL chart exists
 	postgresCharts := lo.Filter(gotCharts, func(name string, _ int) bool {
@@ -118,6 +120,60 @@ SecureCookies = false`,
 		return name == "sdk.composite.chainlink.node.v1"
 	})
 	is.Len(chainlinkCharts, 3, "Should have exactly 3 Chainlink node charts")
+
+	// Verify ClientSideApply chart exists
+	clientSideApplyCharts := lo.Filter(gotCharts, func(name string, _ int) bool {
+		return name == "sdk.ClientSideApply"
+	})
+	is.Len(clientSideApplyCharts, 1, "Should have exactly one ClientSideApply chart")
+
+	// Find and verify the ClientSideApply component
+	var waitForChart cdk8s.Chart
+	for _, c := range *app.Charts() {
+		if !*cdk8s.Chart_IsChart(c) {
+			continue
+		}
+		if crib.ExtractResource(c.Node().Id()) == "sdk.ClientSideApply" {
+			waitForChart = c
+			break
+		}
+	}
+	must.NotNil(waitForChart, "ClientSideApply chart should be found")
+
+	// Verify ClientSideApply configuration
+	t.Run("ClientSideApply", func(t *testing.T) {
+		var obj cdk8s.ApiObject
+		is.NotPanics(func() {
+			obj = cdk8s.ApiObject_Of(waitForChart.Node().DefaultChild())
+		}, "Should not panic when getting default child")
+		is.NotNil(obj, "ClientSideApply object should not be nil")
+
+		// Verify object metadata
+		is.Equal("crib.smartcontract.com/v1alpha1", *obj.ApiVersion(), "API version should match")
+		is.Equal("ClientSideApply", *obj.Kind(), "Kind should be ClientSideApply")
+		is.Equal("crib.smartcontract.com", *obj.ApiGroup(), "API group should match")
+		is.Equal("test-namespace", *obj.Metadata().Namespace(), "Namespace should match")
+
+		// Verify object specification
+		json := dry.As[map[string]any](obj.ToJson())
+		is.NotNil(json, "JSON representation should not be nil")
+		spec := dry.As[map[string]any](json["spec"])
+		is.NotNil(spec, "Spec should not be nil")
+
+		want := map[string]any{
+			"onFailure": "abort",
+			"action":    "kubectl",
+			"args": []any{
+				"wait",
+				"-n", "test-namespace",
+				"--for=condition=ready",
+				"pod",
+				"-l=app.kubernetes.io/name=chainlink",
+				"--timeout=600s",
+			},
+		}
+		is.Equal(want, spec, "Spec should match expected configuration")
+	})
 }
 
 // TestNodeSetValidation verifies the validation logic for Props.

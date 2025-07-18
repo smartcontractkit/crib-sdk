@@ -13,6 +13,7 @@ import (
 
 	chainlinknodev1 "github.com/smartcontractkit/crib-sdk/crib/composite/chainlink/node/v1"
 	postgresv1 "github.com/smartcontractkit/crib-sdk/crib/scalar/charts/postgres/v1"
+	clientsideapplyv1 "github.com/smartcontractkit/crib-sdk/crib/scalar/clientsideapply/v1"
 	helmchartv1 "github.com/smartcontractkit/crib-sdk/crib/scalar/helmchart/v1"
 )
 
@@ -132,6 +133,29 @@ func nodeSet(ctx context.Context, props crib.Props) (crib.Component, error) {
 		// Convert the result to the expected type
 		nodeResult := dry.MustAs[chainlinknodev1.Result](result)
 		results = append(results, &nodeResult)
+	}
+
+	// Wait for all Chainlink nodes to be ready
+	waitForNodes, err := clientsideapplyv1.New(ctx, &clientsideapplyv1.Props{
+		Namespace: nodeSetProps.Namespace,
+		OnFailure: "abort",
+		Action:    "kubectl",
+		Args: []string{
+			"wait",
+			"-n", nodeSetProps.Namespace,
+			"--for=condition=ready",
+			"pod",
+			"-l=app.kubernetes.io/name=chainlink",
+			"--timeout=600s",
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wait for nodes: %w", err)
+	}
+
+	// Set up dependencies: wait for all nodes to be created before checking if they're ready
+	for _, nodeResult := range results {
+		waitForNodes.Node().AddDependency(nodeResult.Component)
 	}
 
 	return Result{
