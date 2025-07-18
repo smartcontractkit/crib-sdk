@@ -39,6 +39,10 @@ override: []
 exclude:
   paths:
     - ^cmd/cribctl # exclude all files in cmd/cribctl directory
+    - ^crib/chart.go # exclude specific file crib/chart.
+    - ^crib/context.go # exclude specific file crib/context.go
+    - ^crib/testing.go # exclude specific file crib/testing.go
+    - ^crib/utils.go # exclude specific file crib/utils.go
     - ^internal/adapter/cribctl # exclude all files in internal/adapter/cribctl directory
     - ^internal/core/domain/ # exclude all files in internal/core/domain directory
     - ^internal/adapter/filehandler/filehandler.go # exclude specific file internal/adapter/filehandler/filehandler.go
