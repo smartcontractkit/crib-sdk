@@ -1,0 +1,120 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "github_token",
+      "description": "GitHub Personal Access Token",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "jira_username",
+      "description": "Jira Email Address",
+      "password": false
+    },
+    {
+      "type": "promptString",
+      "id": "jira_token",
+      "description": "Jira API Token",
+      "password": true
+    }
+  ],
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ]
+    },
+    "filesystem": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--mount",
+        "type=bind,src=${workspaceFolder},dst=/projects/github.com/smartcontractkit/crib-sdk",
+        "mcp/filesystem",
+        "/projects"
+      ]
+    },
+    "mcp-atlassian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "CONFLUENCE_URL",
+        "-e",
+        "CONFLUENCE_USERNAME",
+        "-e",
+        "CONFLUENCE_API_TOKEN",
+        "-e",
+        "JIRA_URL",
+        "-e",
+        "JIRA_USERNAME",
+        "-e",
+        "JIRA_API_TOKEN",
+        "ghcr.io/sooperset/mcp-atlassian:latest"
+      ],
+      "env": {
+        "CONFLUENCE_URL": "https://smartcontract-it.atlassian.net/wiki",
+        "CONFLUENCE_USERNAME": "${input:jira_username}",
+        "CONFLUENCE_API_TOKEN": "${input:jira_token}",
+        "JIRA_URL": "https://smartcontract-it.atlassian.net",
+        "JIRA_USERNAME": "${input:jira_username}",
+        "JIRA_API_TOKEN": "${input:jira_token}"
+      }
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "${workspaceFolder}"
+      ]
+    },
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
+      }
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "-v",
+        "claude-memory:/app/dist",
+        "--rm",
+        "mcp/memory"
+      ]
+    },
+    "sequentialthinking": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "mcp/sequentialthinking"
+      ]
+    },
+    "time": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-time"
+      ]
+    }
+  }
+}

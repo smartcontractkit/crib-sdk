@@ -1,0 +1,15 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: testingapp-5b9bc-sdk-clientsideapply-513ac45f-c89bddc8
+  namespace: test-ns
+spec:
+  action: kubectl
+  args:
+    - rollout
+    - status
+    - deployment
+    - -l
+    - app.kubernetes.io/instance=blockchain-1234
+    - --timeout=600s
+  onFailure: abort

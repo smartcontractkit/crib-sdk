@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  config.toml: LogLevel = "info"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: auto-postgres-node
+    app.kubernetes.io/name: chainlink
+  name: auto-postgres-node-config
+  namespace: test-namespace

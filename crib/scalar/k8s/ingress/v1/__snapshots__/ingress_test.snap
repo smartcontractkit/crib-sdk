@@ -1,0 +1,50 @@
+
+[TestNewIngress/Valid_Props_with_Rules - 1]
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: api-ingress
+  namespace: production
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: api-service
+                port:
+                  number: 80
+            path: /api
+            pathType: Prefix
+
+---
+
+[TestNewIngress_CustomizeCreatedScalar - 1]
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels:
+    app: api
+  name: api-ingress
+  namespace: production
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: api-service
+                port:
+                  number: 80
+            path: /api
+            pathType: Prefix
+
+---

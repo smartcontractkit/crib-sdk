@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: blockchain-1234
+    app.kubernetes.io/name: blockchain
+  name: blockchain-1234
+  namespace: test-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: blockchain-1234
+      app.kubernetes.io/name: blockchain
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: blockchain-1234
+        app.kubernetes.io/name: blockchain
+    spec:
+      containers:
+        - args:
+            - start
+            - --mode
+            - simulated
+          command:
+            - blockchain
+          env:
+            - name: FOO
+              value: BAR
+          image: example-image:latest
+          name: blockchain
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+      securityContext:
+        runAsNonRoot: true

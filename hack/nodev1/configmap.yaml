@@ -1,0 +1,41 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: node-0
+data:
+  00-defaults.toml: |
+    RootDir = '/home/chainlink'
+
+    [Database]
+    MaxIdleConns = 20
+    MaxOpenConns = 40
+    MigrateOnStartup = true
+
+    [Log]
+    Level = 'info'
+    JSONConsole = true
+
+    [Log.File]
+    MaxSize = '0b'
+
+    [WebServer]
+    AllowOrigins = '*'
+    HTTPPort = 6688
+    SecureCookies = false
+
+    [WebServer.RateLimit]
+    Authenticated = 2000
+    Unauthenticated = 100
+
+    [WebServer.TLS]
+    HTTPSPort = 0
+  01-network-anvil-1337.toml: |-
+    [[EVM]]
+    ChainID = '1337'
+    AutoCreateKey = true
+
+    [[EVM.Nodes]]
+    Name = '1337_primary_chainlink_local'
+    HTTPURL = 'http://anvil:8545'
+    WSURL = 'ws://anvil:8545'

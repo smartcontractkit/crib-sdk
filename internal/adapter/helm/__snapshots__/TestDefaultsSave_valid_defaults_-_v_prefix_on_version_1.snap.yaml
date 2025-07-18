@@ -1,0 +1,11 @@
+values:
+  key1: value1
+  key2: 42
+  key3: true
+  obj:
+    nestedKey1: nestedValue1
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: v0.9.1

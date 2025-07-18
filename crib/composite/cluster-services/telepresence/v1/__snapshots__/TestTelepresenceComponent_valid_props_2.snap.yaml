@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: traffic-manager
+    app.kubernetes.io/name: traffic-manager
+  name: traffic-manager
+  namespace: test-namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: traffic-manager
+subjects:
+  - kind: ServiceAccount
+    name: traffic-manager
+    namespace: test-namespace

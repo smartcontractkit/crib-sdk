@@ -1,0 +1,20 @@
+---
+chart:
+  name: component-chart
+  releaseName: loki
+  repository: https://charts.devspace.sh
+  version: 0.9.1
+
+values:
+  service:
+    name: svc-loki
+  volumes:
+    - name: config-volume
+      configMap:
+        name: loki-config
+  podSecurityContext:
+    fsGroup: 999
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000

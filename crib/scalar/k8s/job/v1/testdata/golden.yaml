@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: test-job
+  name: test-job
+  namespace: test-namespace
+spec:
+  template:
+    metadata:
+      labels:
+        cdk8s.io/metadata.addr: TestingApp-5b9bc4ba-sdk.JobV1-17b693e2-c83550b8
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - echo
+            - Hello from Job!
+          image: busybox:latest
+          imagePullPolicy: Always
+          name: test-container
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 2048Mi
+            requests:
+              cpu: 1000m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      dnsPolicy: ClusterFirst
+      hostNetwork: false
+      restartPolicy: Never
+      securityContext:
+        fsGroupChangePolicy: Always
+        runAsNonRoot: true
+      setHostnameAsFQDN: false
+      shareProcessNamespace: false
+      terminationGracePeriodSeconds: 30

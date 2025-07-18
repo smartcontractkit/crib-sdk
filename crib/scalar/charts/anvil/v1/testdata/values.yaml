@@ -1,0 +1,43 @@
+containers:
+  - image: ghcr.io/foundry-rs/foundry:latest
+    command: ['sh', '-c']
+    args:
+      - |
+        if [ ! -f ${ANVIL_STATE_PATH} ]; then
+          echo "No state found, creating new state"
+          anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH}
+        else
+          echo "State found, loading state"
+          anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH} --load-state ${ANVIL_STATE_PATH}
+        fi
+    env:
+      - name: ANVIL_CHAIN_ID
+        value: "1337" # CONFIGURE
+      - name: ANVIL_HOST
+        value: "0.0.0.0"
+      - name: ANVIL_PORT
+        value: "8545"
+      - name: ANVIL_BLOCK_TIME
+        value: "1"
+      - name: ANVIL_STATE_PATH
+        value: /data/anvil/anvil_state.json
+    volumeMounts:
+      - containerPath: /data/anvil
+        volume:
+          name: anvil-storage
+          subPath: /data/anvil
+          readOnly: false
+service:
+  name: anvil-1337 # CONFIGURE
+  type: ClusterIP
+  ports:
+    - port: 8545
+volumes:
+  - name: anvil-storage
+    size: 2Gi
+podSecurityContext:
+  fsGroup: 1000
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000

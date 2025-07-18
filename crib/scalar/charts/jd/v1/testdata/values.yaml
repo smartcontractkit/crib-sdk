@@ -1,0 +1,49 @@
+---
+containers:
+  - name: jd
+    image: localhost:5001/job-distributor:0.12.7
+    imagePullPolicy: IfNotPresent
+    env:
+      - name: CSA_KEY_ENCRYPTION_SECRET
+        value: supersecret
+      - name: DATABASE_URL
+        value: 'postgresql://chainlink:JGVgp7M2Emcg7Av8KKVUgMZb@jd-db:5432/chainlink?sslmode=disable'
+      - name: ENVIRONMENT
+        value: development
+      - name: SERVER_ENABLE_REFLECTION
+        value: 'true'
+    readinessProbe:
+      grpc:
+        port: 42242
+      timeoutSeconds: 10
+      periodSeconds: 15
+      successThreshold: 1
+      failureThreshold: 6
+    livenessProbe:
+      grpc:
+        port: 42242
+      timeoutSeconds: 10
+      periodSeconds: 30
+      successThreshold: 1
+      failureThreshold: 6
+service:
+  name: jd
+  type: ClusterIP
+  ports:
+    - name: grpc
+      port: 42242
+      containerPort: 42242
+      protocol: TCP
+    - name: wsrpc
+      port: 8080
+      containerPort: 8080
+      protocol: TCP
+    - name: wsrpc-health
+      port: 8081
+      containerPort: 8081
+      protocol: TCP
+podSecurityContext:
+  fsGroup: 2000
+securityContext:
+  runAsUser: 1000
+  runAsNonRoot: true

@@ -1,0 +1,65 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/pre-commit-config.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj # codespell:ignore fo
+
+# Recommended to add directories first, then files.
+# Directories: my-dir\/.*
+# Files: .*/file.go
+exclude: '^(.build\/.*|.task\/.*|.github-actions.md)$'
+default_language_version:
+  golang: 1.24.4
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+        args: ["--assume-in-merge"]
+      - id: check-executables-have-shebangs
+        exclude: '__snapshots__/.*$'
+      - id: check-shebang-scripts-are-executable
+      - id: check-json
+      - id: check-yaml
+        exclude: '^.*-invalid\.yaml$|^.*/__snapshots__/.*.ya?ml$'
+        args: ["--allow-multiple-documents"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        exclude_types: [go]
+        args: ["--markdown-linebreak-ext=md"]
+      - id: fix-byte-order-marker
+      - id: forbid-submodules
+      - id: mixed-line-ending
+      - id: pretty-format-json
+        args:
+          - --autofix
+          - --no-sort-keys
+          - --no-ensure-ascii
+      - id: no-commit-to-branch
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint-system
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.13.0
+    hooks:
+      - id: yamlfmt
+        types: [file, yaml]
+        exclude_types: [go]
+        exclude: "testdata/.*.yaml$|^.*/__snapshots__/.*.ya?ml$"
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        exclude: "testdata/.*.ya?ml$|^.*/__snapshots__/.*.ya?ml$"
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.1.6
+    hooks:
+      - id: golangci-lint-full
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    rev: 40.0.4
+    hooks:
+      - id: renovate-config-validator
+        args: [--strict]

@@ -1,0 +1,16 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: sdk.blockchain-f-sdk.clientsideapply-4e1e70e4-c8fd4632
+  namespace: test-namespace
+spec:
+  action: kubectl
+  args:
+    - wait
+    - -n
+    - test-namespace
+    - --for=condition=ready
+    - pod
+    - -l=app.kubernetes.io/component=test-blockchain,app.kubernetes.io/name=devspace-app
+    - --timeout=600s
+  onFailure: abort

@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/component: anvil-1337
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: devspace-app
+    helm.crib.sdk/chart: component-chart
+    helm.crib.sdk/name: component-chart
+    helm.crib.sdk/namespace: test-ns-anvil
+    helm.crib.sdk/release: anvil-1337
+  name: anvil-1337
+  namespace: test-ns-anvil
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: anvil-1337
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: devspace-app
+  serviceName: anvil-1337-headless
+  template:
+    metadata:
+      annotations:
+        helm.sh/chart: component-chart-0.9.1
+      labels:
+        app.kubernetes.io/component: anvil-1337
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: devspace-app
+    spec:
+      containers:
+        - args:
+            - |
+              if [ ! -f ${ANVIL_STATE_PATH} ]; then
+                echo "No state found, creating new state"
+                anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH}
+              else
+                echo "State found, loading state"
+                anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH} --load-state ${ANVIL_STATE_PATH}
+              fi
+          command:
+            - sh
+            - -c
+          env:
+            - name: ANVIL_CHAIN_ID
+              value: "1337"
+            - name: ANVIL_HOST
+              value: 0.0.0.0
+            - name: ANVIL_PORT
+              value: "8545"
+            - name: ANVIL_BLOCK_TIME
+              value: "1"
+            - name: ANVIL_STATE_PATH
+              value: /data/anvil/anvil_state.json
+          image: ghcr.io/foundry-rs/foundry:latest
+          name: container-0
+          volumeMounts:
+            - mountPath: /data/anvil
+              name: anvil-storage
+              readOnly: false
+              subPath: data/anvil
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        annotations:
+          helm.sh/chart: component-chart-0.9.1
+        labels:
+          app.kubernetes.io/component: anvil-1337
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: devspace-app
+        name: anvil-storage
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi

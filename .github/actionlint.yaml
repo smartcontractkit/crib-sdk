@@ -1,0 +1,6 @@
+---
+self-hosted-runner:
+  labels:
+    - ubuntu24.04-4cores-16GB
+    - ubuntu24.04-8cores-32GB
+    - ubuntu24.04-16cores-64GB

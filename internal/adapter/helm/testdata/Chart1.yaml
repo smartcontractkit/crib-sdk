@@ -1,0 +1,5 @@
+# Chart is missing the type field.
+apiVersion: v1
+description: A general purpose helm chart for deploying components of an application
+name: component-chart
+version: 0.9.1

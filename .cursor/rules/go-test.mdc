@@ -1,0 +1,50 @@
+---
+description: Best practices for writing Go tests
+globs: *_test.go
+alwaysApply: false
+---
+
+# Go Testing Best Practices
+
+1. Follow Go best practices and standard formatting:
+    - Use `gofmt` for basic code formatting
+    - Use `goimports` for import organization
+    - Use `golangci-lint` for comprehensive linting
+    - Follow Go naming conventions
+    - Keep functions focused and small
+    - Use meaningful variable and function names
+    - Prefer using Google's and Uber's style guide when authoring Go code
+    - Prefer using internally available packages over external packages or standard library packages
+      - Most "helper" libraries are found under `internal/core/common` or `internal/adapter`
+
+2. Testing Requirements:
+    - Write unit tests for all new components using `testify`
+    - Use `testify/assert` for assertions and `testify/require` for critical checks
+    - Use `testify/suite` for test suites where appropriate
+    - Include integration tests for composite components
+    - Maintain test coverage above 80%
+    - Use table-driven tests where appropriate
+      - Use the variable `tc` when iterating over test cases
+    - Mock external dependencies using `testify/mock`
+    - Use `testify/assert.Equal` for value comparisons
+    - Use `testify/assert.NoError` for error checking
+    - Use `testify/assert.NotNil` for pointer validation
+
+3. High-level Directory Structure:
+    - GitHub Actions workflows in `.github/workflows`
+    - API schemas like OpenAPI in `api`
+    - Build files like Dockerfile in `build`
+    - CLI-related files in `cmd`
+    - SDK "Plans" in `contrib`
+    - Components in `crib/scalar` and `crib/composite`
+    - Core SDK exported methods in `crib`
+    - Deployment automation like Docker Compose in `deployments`
+    - Examples in `examples`
+    - Hack scripts in `hack`
+    - Adapters (Hexagonal Architecture) in `internal/adapter`
+    - Common utilities in `internal/core/common`
+    - Domain objects in `internal/core/domain`
+    - Interfaces in `internal/core/interfaces`
+    - Services in `internal/core/services`
+    - Taskfiles in `taskfiles`
+    - E2E tests in `tests`

@@ -1,0 +1,28 @@
+---
+chart:
+  name: component-chart
+  releaseName: ots-1337
+  repository: oci://ghcr.io/ajgrande924/registry/component-chart
+  version: 0.9.1
+
+## configurable values
+# - containers[0].env[0].value = http://anvil-1337:8545
+# - service.name = ots-1337
+values:
+  containers:
+    - image: otterscan/otterscan:latest
+      env:
+        - name: ERIGON_URL
+          value: "http://anvil-1337:8545" # CONFIGURE
+  service:
+    name: ots-1337 # CONFIGURE
+    type: ClusterIP
+    ports:
+      - port: 80
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"

@@ -1,0 +1,87 @@
+agent:
+    appProtocolStrategy: http2Probe
+    image:
+        pullPolicy: IfNotPresent
+    initContainer:
+        enabled: true
+    mountPolicies:
+        /tmp: Local
+    port: 9900
+agentInjector:
+    certificate:
+        accessMethod: watch
+        certmanager:
+            commonName: agent-injector
+            duration: 2160h0m0s
+            issuerRef:
+                kind: Issuer
+                name: telepresence
+        method: helm
+    enabled: true
+    injectPolicy: OnDemand
+    name: agent-injector
+    secret:
+        name: mutator-webhook-tls
+    webhook:
+        admissionReviewVersions:
+            - v1
+        failurePolicy: Ignore
+        name: agent-injector-webhook
+        port: 443
+        reinvocationPolicy: IfNeeded
+        servicePath: /traffic-agent
+        sideEffects: None
+        timeoutSeconds: 5
+apiPort: 8081
+client:
+    dns:
+        excludeSuffixes:
+            - .com
+            - .io
+            - .net
+            - .org
+            - .ru
+grpc:
+    connectionTTL: 24h
+    maxReceiveSize: 4Mi
+hooks:
+    busybox:
+        image: busybox
+        imagePullSecrets: []
+        registry: docker.io
+        tag: latest
+    curl:
+        image: curlimages/curl
+        imagePullSecrets: []
+        pullPolicy: IfNotPresent
+        registry: docker.io
+        tag: 8.1.1
+image:
+    name: tel2
+    pullPolicy: IfNotPresent
+    registry: ghcr.io/telepresenceio
+logLevel: info
+managerRbac:
+    create: true
+maxNamespaceSpecificWatchers: 10
+podCIDRStrategy: auto
+prometheus: {}
+replicaCount: 1
+securityContext:
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+service:
+    type: ClusterIP
+telepresenceAPI: {}
+timeouts:
+    agentArrival: 30s
+workloads:
+    argoRollouts:
+        enabled: false
+    deployments:
+        enabled: true
+    replicaSets:
+        enabled: true
+    statefulSets:
+        enabled: true

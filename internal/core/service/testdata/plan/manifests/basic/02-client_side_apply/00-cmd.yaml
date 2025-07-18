@@ -1,0 +1,10 @@
+---
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+spec:
+  onFailure: abort
+  action: cmd # Oneof task, cribctl, cmd, kubectl
+  args:
+    - |
+      date=$(date)
+      echo "cmd: The current date is $date"

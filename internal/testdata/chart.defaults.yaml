@@ -1,0 +1,17 @@
+---
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://helm.example.com/charts
+  version: 1.0.0
+
+values:
+  one: two
+  two: 1
+  three: true
+  four:
+    - one
+    - two
+  five:
+    one: two
+    two: 1

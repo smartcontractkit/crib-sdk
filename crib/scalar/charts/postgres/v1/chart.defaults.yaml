@@ -1,0 +1,35 @@
+---
+chart:
+  name: postgresql
+  releaseName: postgres
+  repository: oci://registry-1.docker.io/bitnamicharts/postgresql
+  version: 16.7.10
+
+values:
+  architecture: standalone
+  fullnameOverride: base # configure
+  auth:
+    enablePostgresUser: true
+    postgresPassword: postgres
+    username: chainlink
+    password: JGVgp7M2Emcg7Av8KKVUgMZb
+    database: chainlink
+    existingSecret: ''
+  image:
+    registry: docker.io
+    repository: bitnami/postgresql
+  tls:
+    enabled: false
+  containerPorts:
+    postgresql: 5432
+  primary:
+    persistence:
+      enabled: false
+      size: 5Gi
+      storageClass: gp3
+  networkPolicy:
+    enabled: false
+  volumePermissions:
+    enabled: false
+  metrics:
+    enabled: false

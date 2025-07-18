@@ -1,0 +1,33 @@
+---
+services:
+  godoc:
+    container_name: godoc
+    develop:
+      watch:
+        - action: sync+restart
+          path: .
+          target: /app
+          ignore:
+            - build/
+            - .build
+            - deployments/compose/*
+    build:
+      dockerfile: build/pkg/godoc/Dockerfile
+      context: ./
+    entrypoint:
+      - go
+      - tool
+      - pkgsite
+      - -http=0.0.0.0:3001
+    volumes:
+      - .:/app
+    ports:
+      - "2152:3001"
+    command:
+      - "."
+    healthcheck:
+      test: curl --fail http://localhost:3001/ || exit 1
+      interval: 1s
+      timeout: 1s
+      retries: 100
+      start_period: 2s

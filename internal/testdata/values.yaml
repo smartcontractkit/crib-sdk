@@ -1,0 +1,8 @@
+---
+key1: a
+key2: true
+key3: 3
+key4:
+  - a
+key5:
+  nestedKey: nestedValue

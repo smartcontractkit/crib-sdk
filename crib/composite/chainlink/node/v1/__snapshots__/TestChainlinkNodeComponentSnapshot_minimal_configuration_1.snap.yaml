@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-chainlink-file
+  namespace: test-namespace
+stringData:
+  apicredentials: |-
+    admin@chain.link
+    staticlongpassword
+  secrets.toml: "[Password]\nKeystore = \"keystorepassword\"\nVRF = \"vrfpassword\"\n\n[Database]\nURL = \"postgresql://user:password@db-host:5432/chainlink\""
+type: Opaque

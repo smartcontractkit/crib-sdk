@@ -1,0 +1,102 @@
+
+[TestNewLokiChart - 1]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-loki
+spec: {}
+/-/-/-/
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: loki
+  name: loki
+  namespace: ns-loki
+spec:
+  ports:
+    - name: port-0
+      port: 3100
+      protocol: TCP
+      targetPort: 3100
+  selector:
+    app.kubernetes.io/component: loki
+    app.kubernetes.io/name: devspace-app
+  type: ClusterIP
+/-/-/-/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/component: loki
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: devspace-app
+  name: loki
+  namespace: ns-loki
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: loki
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: devspace-app
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        helm.sh/chart: component-chart-0.9.1
+      labels:
+        app.kubernetes.io/component: loki
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: devspace-app
+    spec:
+      containers:
+        - args:
+            - --config.file=/etc/loki/config/loki.yml
+          image: grafana/loki:3.1.0
+          name: container-0
+          volumeMounts:
+            - mountPath: /etc/loki/config
+              name: config-volume
+              readOnly: false
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - configMap:
+            name: loki-config
+          name: config-volume
+/-/-/-/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: loki
+  name: loki-ingress
+  namespace: ns-loki
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: loki.localhost
+      http:
+        paths:
+          - backend:
+              service:
+                name: loki
+                port:
+                  number: 3100
+            path: /
+            pathType: ImplementationSpecific
+
+---

@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj # codespell:ignore fo
+
+version: "3"
+
+tasks:
+  test:
+    desc: Run go tests. Use SHORT=true for short tests only.
+    vars:
+      SHORT: '{{ .SHORT | default "false" }}'
+    cmds:
+      - |
+        asdf exec go test -fullpath -mod=readonly -count 1 -shuffle=on \
+        {{ if eq .SHORT "true" }}-short{{ end }} \
+        --tags=integration,smoke -coverprofile=coverage.txt -covermode=atomic ./...
+
+  # go-snaps, by default creates files with executable bits and this os flagged by pre-commit validation as it is validating
+  # all executables in the repo
+  test:snapshots:fix-chmod:
+    desc: Remove executable bit from go-snap created snapshot files
+    cmd: |
+      #!/bin/sh
+
+      find . -type f -name "*.snap" -exec sh -c '
+        for file do
+        if [ -x "$file" ]; then
+          chmod -x "$file"
+          echo "Removed executable bit: $file"
+        fi
+      done
+      ' sh {} +;
+
+  tidy:
+    desc: Run go mod tidy.
+    sources:
+      - go.mod
+      - go.sum
+      - cmd/cribctl/go.mod
+      - cmd/cribctl/go.sum
+    cmds:
+      - asdf exec go work sync
+      - asdf exec go mod tidy
+      - asdf exec go mod verify
+
+  lint:
+    desc: Run golangci-lint.
+    cmds:
+      - asdf exec golangci-lint run --new-from-rev=HEAD~ --whole-files --output.text.path stdout --max-same-issues=0 --config=.golangci.yaml
+
+  fmt:
+    run: once
+    desc: Format all go files.
+    sources:
+      - "**/*.go"
+      - exclude: "**/*_gen.go"
+      - exclude: "**/*_enum.go"
+      - exclude: "vendor/**/*.go"
+      - exclude: "third_party/**/*.go"
+    generates:
+      - "**/*.go"
+    cmds:
+      - asdf exec golangci-lint fmt --config=.golangci.yaml
+      - cmd: echo "Project formatted successfully."
+        silent: true
+
+  lint:fix:
+    desc: Attempt to automatically fix linting issues.
+    aliases:
+      - lint-fix
+    cmds:
+      - asdf exec golangci-lint run --new-from-rev=HEAD~ --whole-files --output.text.path stdout --max-same-issues=0 --config=.golangci.yaml --fix

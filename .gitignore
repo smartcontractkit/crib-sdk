@@ -1,0 +1,103 @@
+############################
+# Go
+############################
+
+./gen
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+vendor/
+coverage.txt
+
+############################
+# Build Artifacts
+############################
+
+.build
+bin
+.bin
+.cache
+main
+/github-actions.md
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.o
+dist/
+Dockerfile.cross
+
+############################
+# Macos
+############################
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+.Spotlight-V100
+.Trashes
+._*
+
+############################
+# Linux
+############################
+
+*~
+
+############################
+# Packages
+############################
+
+*.7z
+*.gz
+*.zip
+*.pid
+
+############################
+# Logs
+############################
+
+.tmp
+*.log
+tmp
+
+############################
+# Misc. & IDEs
+############################
+
+# Environment Files
+.env
+.envrc
+*#
+
+# IntelliJ IDEA
+.idea
+
+# Taskfile
+.task/
+
+# VS Code files
+.vscode
+*.code-workspace
+.history/
+
+*.swp
+*.swo
+
+############################
+# Node.js
+############################
+
+lib-cov
+lcov.info
+pids
+logs
+results
+node_modules
+.node_history
+*.heapsnapshot

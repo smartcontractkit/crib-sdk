@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj # codespell:ignore fo
+
+version: "3"
+
+vars:
+  BINDIR:
+    sh: |
+      X='{{ .USER_WORKING_DIR }}/.bin'
+      test -d ${X} || mkdir -p ${X} || true
+      echo ${X}
+
+includes:
+  docker:
+    taskfile: ./taskfiles/docker
+  go:
+    taskfile: ./taskfiles/go
+  install:
+    taskfile: ./taskfiles/install
+
+tasks:
+  default:
+    desc: Display the list of available tasks.
+    silent: true
+    cmds:
+      - task --list-all
+
+  pre-commit:
+    desc: "Run pre-commit hooks."
+    aliases:
+      - pre-commit
+    cmds:
+      - pre-commit run --all-files
+
+  build:cribctl:
+    desc: "Build cribctl."
+    cmds:
+      - go build -o .build/cribctl ./cmd/cribctl
+
+  build:docker:
+    desc: "Build Docker images."
+    cmds:
+      - docker build -t cribctl:latest -f build/pkg/cribctl/Dockerfile .

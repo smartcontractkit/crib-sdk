@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: anvil-1337
+    helm.crib.sdk/chart: component-chart
+    helm.crib.sdk/name: component-chart
+    helm.crib.sdk/namespace: test-ns-anvil
+    helm.crib.sdk/release: anvil-1337
+  name: anvil-1337-headless
+  namespace: test-ns-anvil
+spec:
+  clusterIP: None
+  ports:
+    - name: web
+      port: 80
+  selector:
+    app.kubernetes.io/component: anvil-1337
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: devspace-app

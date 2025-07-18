@@ -1,0 +1,16 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: sdk-composite-ch-sdk-clientsideapply-d00531ad-c8ad2608
+  namespace: test-namespace
+spec:
+  action: kubectl
+  args:
+    - wait
+    - -n
+    - test-namespace
+    - --for=condition=ready
+    - pod
+    - -l=statefulset.kubernetes.io/pod-name=test-jd-db-0,app.kubernetes.io/name=postgresql
+    - --timeout=600s
+  onFailure: abort

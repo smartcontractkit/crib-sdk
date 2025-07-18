@@ -1,0 +1,16 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: testingapp-5b9bc-sdk-clientsideapply-287ab1e8-c80823f1
+  namespace: ns-helm-chart
+spec:
+  action: kubectl
+  args:
+    - wait
+    - -n
+    - ns-helm-chart
+    - --for=condition=ready
+    - pod
+    - -l=helm.crib.sdk/chart=component-chart,helm.crib.sdk/name=test-chart,helm.crib.sdk/namespace=ns-helm-chart,helm.crib.sdk/release=my-test-chart
+    - --timeout=600s
+  onFailure: abort

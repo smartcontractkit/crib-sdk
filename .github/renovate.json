@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "packages:linters",
+    ":dependencyDashboard",
+    ":semanticPrefixFixDepsChoreOthers",
+    ":ignoreModulesAndTests",
+    "group:monorepos",
+    "group:recommended",
+    "replacements:all",
+    "workarounds:all",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "enabled": true,
+  "bbAutoResolvePrTasks": true,
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "gomod": {
+    "fileMatch": [
+      "(^|/)go\\.mod$"
+    ],
+    "pinDigests": true,
+    "packageRules": [
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchDepTypes": [
+          "indirect"
+        ],
+        "enabled": true,
+        "postUpdateOptions": [
+          "gomodTidy",
+          "gomodUpdateImportPaths",
+          "gomodMassage"
+        ]
+      }
+    ]
+  },
+  "github-actions": {
+    "fileMatch": [
+      "(^|/)(workflow-templates|\\.(?:github|gitea|forgejo)/(?:workflows|actions))/.+\\.ya?ml$",
+      "(^|/)action\\.ya?ml$"
+    ]
+  },
+  "dockerfile": {
+    "enabled": true
+  },
+  "digest": {
+    "enabled": true
+  },
+  "rebaseWhen": "behind-base-branch",
+  "branchPrefix": "renovate-bot/",
+  "semanticCommits": "enabled",
+  "separateMinorPatch": true,
+  "dependencyDashboard": true,
+  "rollbackPrs": true,
+  "updatePinnedDependencies": true
+}

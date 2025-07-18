@@ -1,0 +1,16 @@
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: my-test-chart
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 17.5.0
+    helm.crib.sdk/chart: postgresql
+    helm.crib.sdk/name: test-chart
+    helm.crib.sdk/namespace: ns-helm-chart
+    helm.crib.sdk/release: my-test-chart
+    helm.sh/chart: postgresql-16.7.10
+  name: my-test-chart-postgresql
+  namespace: ns-helm-chart

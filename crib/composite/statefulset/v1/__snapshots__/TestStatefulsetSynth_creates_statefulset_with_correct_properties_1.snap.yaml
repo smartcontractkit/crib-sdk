@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: test-instance
+    app.kubernetes.io/name: test-app
+  name: test-statefulset
+  namespace: test-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: test-instance
+      app.kubernetes.io/name: test-app
+  serviceName: test-statefulset
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: test-instance
+        app.kubernetes.io/name: test-app
+    spec:
+      containers:
+        - env:
+            - name: POD_NAME
+              value: $(POD_NAME)
+          image: nginx:latest
+          imagePullPolicy: IfNotPresent
+          name: main
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+      volumes:
+        - name: data-volume
+  volumeClaimTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/instance: test-instance
+          app.kubernetes.io/name: test-app
+        name: test-instance-data
+        namespace: test-namespace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 200m
+        storageClassName: gp3

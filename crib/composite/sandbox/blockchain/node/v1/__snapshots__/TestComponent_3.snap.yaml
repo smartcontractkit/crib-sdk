@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: test-blockchain
+  name: anvil-1337
+  namespace: test-namespace
+spec:
+  ports:
+    - name: port-0
+      port: 8545
+      protocol: TCP
+      targetPort: 8545
+  selector:
+    app.kubernetes.io/component: test-blockchain
+    app.kubernetes.io/name: devspace-app
+  type: ClusterIP

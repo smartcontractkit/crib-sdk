@@ -1,0 +1,10 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: sdk-composite-te-sdk-clientsideapply-1106cfe7-c85921b9
+  namespace: default
+spec:
+  action: telepresence
+  args:
+    - connect
+  onFailure: abort

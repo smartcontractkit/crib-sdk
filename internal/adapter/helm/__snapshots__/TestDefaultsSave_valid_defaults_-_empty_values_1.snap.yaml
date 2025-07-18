@@ -1,0 +1,6 @@
+values: {}
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: 1.0.0

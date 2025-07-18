@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  foo.conf: "chainsCount: 200\nbufferSize: 160MB\n"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: test-app-123
+    app.kubernetes.io/name: test-app
+  name: test-cm
+  namespace: test-namespace

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/component: my-test-chart
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: devspace-app
+    helm.crib.sdk/chart: component-chart
+    helm.crib.sdk/name: test-chart
+    helm.crib.sdk/namespace: ns-helm-chart
+    helm.crib.sdk/release: my-test-chart
+  name: my-test-chart
+  namespace: ns-helm-chart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: my-test-chart
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: devspace-app
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        helm.sh/chart: component-chart-0.9.1
+      labels:
+        app.kubernetes.io/component: my-test-chart
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: devspace-app
+    spec:
+      containers:
+        - image: nginx:1.23.3
+          name: nginx
+      terminationGracePeriodSeconds: 5

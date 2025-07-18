@@ -1,0 +1,22 @@
+
+[TestUnmarshalDocument - 1]
+a: 2
+b: true
+
+---
+
+[TestUnmarshalDocument - 2]
+c:
+  - 1
+  - 2
+
+---
+
+[TestUnmarshalDocument - 3]
+d:
+  e: hello
+  f:
+    g: 4
+    h: 5
+
+---

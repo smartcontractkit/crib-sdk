@@ -1,0 +1,56 @@
+
+[TestDefaultsSave/valid_defaults_-_no_v_prefix_on_version - 1]
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: 0.9.1
+values:
+  key1: value1
+  key2: 42
+  key3: true
+  obj:
+    nestedKey1: nestedValue1
+
+---
+
+[TestDefaultsSave/valid_defaults_-_v_prefix_on_version - 1]
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: v0.9.1
+values:
+  key1: value1
+  key2: 42
+  key3: true
+  obj:
+    nestedKey1: nestedValue1
+
+---
+
+[TestDefaultsSave/valid_defaults_-_v_prefix_missing_on_version - 1]
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: 0.9.1
+values:
+  key1: value1
+  key2: 42
+  key3: true
+  obj:
+    nestedKey1: nestedValue1
+
+---
+
+
+[TestDefaultsSave/valid_defaults_-_empty_values - 1]
+chart:
+  name: test-chart
+  releaseName: test-release
+  repository: https://example.com/charts
+  version: 1.0.0
+values: {}
+
+---

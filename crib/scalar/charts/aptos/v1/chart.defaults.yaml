@@ -1,0 +1,84 @@
+---
+chart:
+  name: component-chart
+  releaseName: aptos
+  repository: oci://ghcr.io/ajgrande924/registry/component-chart
+  version: 0.9.1
+
+values:
+  containers:
+    - name: aptos-node
+      image: aptoslabs/tools:aptos-node-v1.30.4
+      command: ["aptos"]
+      args:
+        - "node"
+        - "run-local-testnet"
+        - "--test-dir"
+        - "/testnet"
+        - "--with-faucet"
+        - "--bind-to"
+        - "0.0.0.0"
+      ports:
+        - containerPort: 8080
+          name: api
+          protocol: TCP
+        - containerPort: 8081
+          name: faucet
+          protocol: TCP
+        - containerPort: 9101
+          name: metrics
+          protocol: TCP
+        - containerPort: 50051
+          name: grpc-indexer
+          protocol: TCP
+        - containerPort: 6181
+          name: fullnode
+          protocol: TCP
+      volumeMounts:
+        - containerPath: /testnet
+          volume:
+            name: testnet-data
+        # aptos needs write access to this but nothing important is stored here so we create an emptyDir to avoid permission issues
+        - containerPath: /.aptos
+          volume:
+            name: homedir
+      env:
+        - name: RUST_LOG
+          value: warn
+  service:
+    name: aptos-node
+    ports:
+      - port: 6181
+        targetPort: 6181
+        name: fullnode
+      - port: 8080
+        targetPort: 8080
+        name: api
+      - port: 8081
+        targetPort: 8081
+        name: faucet
+      - port: 9101
+        targetPort: 9101
+        name: metrics
+      - port: 50051
+        targetPort: 50051
+        name: grpc-indexer
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+  volumes:
+    - name: testnet-data
+      emptyDir: {}
+    - name: homedir
+      emptyDir: {}

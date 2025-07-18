@@ -1,0 +1,15 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: sdk.anvilcomposi-sdk.clientsideapply-157e430e-c8f4de49
+  namespace: foo-bar-baz
+spec:
+  action: kubectl
+  args:
+    - rollout
+    - status
+    - statefulset
+    - -l
+    - app.kubernetes.io/instance=anvil-1234
+    - --timeout=600s
+  onFailure: abort

@@ -1,0 +1,10 @@
+
+[TestHelmSuite/TestTemplateRepo - 1]
+{
+ "Template": {
+  "Chart": "test-release",
+  "Folder": true,
+  "Values": true
+ }
+}
+---

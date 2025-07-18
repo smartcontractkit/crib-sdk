@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: anvil-1234
+    app.kubernetes.io/name: anvil
+  name: anvil-1234
+  namespace: foo-bar-baz
+spec:
+  ports:
+    - port: 8545
+      protocol: TCP
+      targetPort: 8545
+  selector:
+    app.kubernetes.io/instance: anvil-1234
+    app.kubernetes.io/name: anvil
+  type: ClusterIP

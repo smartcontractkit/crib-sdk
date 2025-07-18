@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app.kubernetes.io/instance: blockchain-1234
+    app.kubernetes.io/name: blockchain
+  name: blockchain-1234-ingress
+  namespace: test-ns
+spec:
+  ingressClassName: example-ingress
+  rules:
+    - host: "*"
+      http:
+        paths:
+          - backend:
+              service:
+                name: blockchain-1234
+                port:
+                  number: 8545
+            path: /
+            pathType: Prefix

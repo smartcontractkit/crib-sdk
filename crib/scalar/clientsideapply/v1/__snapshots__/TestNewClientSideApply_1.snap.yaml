@@ -1,0 +1,10 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: testingapp-5b9bc-sdk-clientsideapply-02e21d7d-c81ef8bc
+  namespace: test-namespace
+spec:
+  action: task
+  args:
+    - go:lint
+  onFailure: continue

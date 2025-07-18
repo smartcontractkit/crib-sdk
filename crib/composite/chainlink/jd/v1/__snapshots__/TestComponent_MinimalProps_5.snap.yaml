@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  password: SkdWZ3A3TTJFbWNnN0F2OEtLVlVnTVpi
+  postgres-password: cG9zdGdyZXM=
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/instance: test-jd-db
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 17.5.0
+    helm.crib.sdk/chart: postgresql
+    helm.crib.sdk/name: postgresql
+    helm.crib.sdk/namespace: test-namespace
+    helm.crib.sdk/release: test-jd-db
+    helm.sh/chart: postgresql-16.7.10
+  name: test-jd-db
+  namespace: test-namespace
+type: Opaque

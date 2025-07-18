@@ -1,0 +1,84 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj # codespell:ignore fo
+
+version: "3"
+
+env:
+  COMPOSE_BAKE: 'true'
+
+tasks:
+  _compose:
+    internal: true
+    run: always
+    silent: true
+    sources:
+      - deployments/compose/**
+    cmds:
+      - for: sources
+        cmd: |
+          docker compose -f {{ .ITEM }} \
+            --project-directory {{ .USER_WORKING_DIR }} \
+            -p crib-sdk-{{ trimSuffix (ext .ITEM) (base .ITEM) }} \
+            {{ .CMD }}
+        ignore_error: true
+    requires:
+      vars:
+        - CMD
+    status:
+      - "false" # Always run the task
+
+  compose:*:
+    desc: Run the given command against running stacks. e.g. `task docker:compose:pause`
+    label: 'docker compose -p {{ .STACK }} {{ .CMD }}'
+    interactive: true
+    vars:
+      CMD: '{{ index .MATCH 0 }}'
+    cmds:
+      - task: _compose
+        vars:
+          CMD: '{{ .CMD }}'
+
+  compose:up:
+    aliases: [up]
+    desc: Start services managed by Docker compose stacks under `deployments/compose/`.
+    cmds:
+      - cmd: printf "ℹ️  Starting Docker compose stacks...\n\n"
+        silent: true
+      - task: _compose
+        vars:
+          CMD: "up --force-recreate -d --wait"
+      - cmd: printf "\n"
+        silent: true
+      - task: _compose
+        vars:
+          CMD: |
+            config --format json | jq -r '.services | to_entries[] | "🚀  Service \(.key) is available at http://localhost:\(.value.ports[].published)."'
+
+  compose:down:
+    aliases: [down]
+    desc: |
+      Stop and remove services managed by Docker compose stacks under `deployments/compose/`.
+      This will also remove the images and orphaned containers to prevent odd caching issues.
+    cmds:
+      - task: _compose
+        vars:
+          CMD: "down --rmi local --remove-orphans"
+
+  logs-*:
+    desc: Tail the logs for the given stack name. e.g. `task docker:logs-devstack`
+    label: 'docker compose -p {{ .STACK }} logs -f'
+    interactive: true
+    vars:
+      STACK: 'daas-{{ trimPrefix "daas-" (index .MATCH 0) }}'
+    cmds:
+      - cmd: |
+          docker compose \
+            -p {{ .STACK }} \
+            logs -f
+        ignore_error: true
+    preconditions:
+      - sh: "docker compose ls | grep -q {{ .STACK }}"
+        msg: "The stack '{{ .STACK }}' does not exist."
+    status:
+      - "false" # Always run the task

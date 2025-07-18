@@ -1,0 +1,10 @@
+.build
+*.md
+main
+deployments/*
+taskfiles/*
+api/*
+.github
+.idea
+.git
+examples

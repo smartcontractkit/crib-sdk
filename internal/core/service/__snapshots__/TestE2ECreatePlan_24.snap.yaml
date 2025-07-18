@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    app.kubernetes.io/instance: anvil-e2e-create-plan
+    app.kubernetes.io/name: anvil
+  name: anvil-e2e-create-plan-ingress
+  namespace: e2e-create-plan
+spec:
+  ingressClassName: example-ingress
+  rules:
+    - host: "*"
+      http:
+        paths:
+          - backend:
+              service:
+                name: anvil-e2e-create-plan
+                port:
+                  number: 8545
+            path: /
+            pathType: Prefix

@@ -1,0 +1,9 @@
+---
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+spec:
+  onFailure: abort
+  action: kubectl # Oneof task, cribctl, cmd, kubectl
+  args:
+    - get
+    - cs

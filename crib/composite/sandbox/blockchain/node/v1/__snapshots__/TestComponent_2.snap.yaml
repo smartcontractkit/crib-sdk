@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: test-blockchain
+  name: test-blockchain-headless
+  namespace: test-namespace
+spec:
+  clusterIP: None
+  ports:
+    - name: web
+      port: 80
+  selector:
+    app.kubernetes.io/component: test-blockchain
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: devspace-app

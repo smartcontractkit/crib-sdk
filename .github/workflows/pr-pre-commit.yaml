@@ -1,0 +1,102 @@
+---
+name: "PR → main: Pre-commit Checks"
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  pre-commit:
+    # runs-on: ubuntu-24.04
+    runs-on: ubuntu24.04-8cores-32GB
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0 # important for full history
+
+      - name: Fetch base branch
+        run: git fetch origin main
+
+      - name: Configure env for toolchain ignore
+        shell: bash
+        run: echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
+
+      - name: Setup golang
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Set env vars
+        run: |
+          gomodcache="$(go env GOMODCACHE)"
+          gocache="$(go env GOCACHE)"
+          goroot="$(go env GOROOT)"
+
+          {
+            echo "GOMODCACHE=${gomodcache}"
+            echo "GOCACHE=${gocache}"
+            echo "GOROOT=${goroot}"
+          } >> "$GITHUB_ENV"
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GOMODCACHE }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-mod-
+
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.GOCACHE }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/*.go') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+
+      - name: Install asdf & tools
+        uses: asdf-vm/actions/install@1902764435ca0dd2f3388eea723a4f92a4eb8302 # v4.0.0
+
+      - name: Setup task
+        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate code
+        run: asdf exec go generate ./...
+
+      - name: Format code
+        run: task go:fmt
+
+      - name: lint with fix
+        run: task go:lint:fix
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --from-ref origin/main --to-ref HEAD
+
+      - name: Check for uncommitted changes
+        run: |-
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error::Git diff found. Please format code and run pre-commit and commit locally."
+            git diff
+            exit 1
+          fi

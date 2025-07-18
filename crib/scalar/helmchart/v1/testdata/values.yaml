@@ -1,0 +1,4 @@
+---
+containers:
+  - name: nginx
+    image: nginx:1.23.3

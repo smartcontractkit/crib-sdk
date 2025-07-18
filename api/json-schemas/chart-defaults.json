@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "$ref": "#/definitions/ChartDefaultsReference",
+  "definitions": {
+    "ChartDefaultsReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "chart": {
+          "$ref": "#/definitions/Chart"
+        },
+        "values": {
+          "$ref": "#/definitions/Values"
+        }
+      },
+      "required": [
+        "chart",
+        "values"
+      ],
+      "title": "CRIB-SDK: Chart Defaults Reference"
+    },
+    "Chart": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Name",
+          "description": "The chart name."
+        },
+        "releaseName": {
+          "type": "string",
+          "title": "Release Name",
+          "description": "The release name to use when referencing the Helm Chart."
+        },
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "qt-uri-protocols": [
+            "https",
+            "oci"
+          ],
+          "title": "Repository",
+          "Description": "Where to find the Helm Chart. Must begin with https:// or oci://."
+        },
+        "version": {
+          "type": "string",
+          "title": "Version",
+          "description": "The Helm Chart to deploy. Should be semver or a reference to a revision."
+        }
+      },
+      "required": [
+        "name",
+        "releaseName",
+        "repository",
+        "version"
+      ],
+      "title": "Chart",
+      "description": "Define default Chart basics.\\n\\nRequired values:\\n- name: The chart name.\\n- releaseName: The release name to use when referencing the Helm Chart.\\n- repository: Where to find the Helm Chart. Must begin with https:// or oci://.\\n- version: The Helm Chart to deploy. Should be semver or a reference to a revision."
+    },
+    "Values": {
+      "type": "object",
+      "additionalProperties": true,
+      "title": "Default Values",
+      "description": "The initially provided Helm Values to use.\\n\\nThis will be merged with the user supplied values AND the Helm values.\\n\\nPriority is Helm Values > Default Values > User Values (most important)."
+    }
+  }
+}

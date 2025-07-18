@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: test-jd
+    app.kubernetes.io/name: jd
+  name: test-jd
+  namespace: test-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: test-jd
+      app.kubernetes.io/name: jd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: test-jd
+        app.kubernetes.io/name: jd
+    spec:
+      containers:
+        - env:
+            - name: ENVIRONMENT
+              value: development
+            - name: DATABASE_URL
+              value: postgresql://chainlink:JGVgp7M2Emcg7Av8KKVUgMZb@test-jd-db:5432/chainlink?sslmode=disable
+            - name: CSA_KEY_ENCRYPTION_SECRET
+              value: d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44
+            - name: SERVER_ENABLE_REFLECTION
+              value: "true"
+          image: test-jd:1.4.3
+          imagePullPolicy: IfNotPresent
+          name: app
+          ports:
+            - containerPort: 42242
+              name: grpc
+              protocol: TCP
+            - containerPort: 8080
+              name: wsrpc
+              protocol: TCP
+            - containerPort: 8081
+              name: wsrpc-health
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 2048Mi
+            requests:
+              cpu: 1000m
+              memory: 512Mi
+          securityContext:
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+      securityContext:
+        runAsNonRoot: true
