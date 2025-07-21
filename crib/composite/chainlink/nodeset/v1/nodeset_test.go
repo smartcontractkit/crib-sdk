@@ -30,10 +30,20 @@ func TestNodeSetComponent(t *testing.T) {
 	app := internal.NewTestApp(t)
 	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
 
-	// Define test properties for 3 Chainlink nodes
+	// Define test properties for 3 Chainlink nodes with PostgreSQL resources
 	testProps := &Props{
 		Namespace: "test-namespace",
 		Size:      3,
+		PostgresResources: map[string]map[string]string{
+			"requests": {
+				"cpu":    "500m",
+				"memory": "512Mi",
+			},
+			"limits": {
+				"cpu":    "1000m",
+				"memory": "1Gi",
+			},
+		},
 		NodeProps: []*chainlinknodev1.Props{
 			{
 				AppInstanceName: "chainlink-node-0",
@@ -328,4 +338,126 @@ func TestGenerateInitSQL(t *testing.T) {
 	is.Contains(sql, "CREATE USER chainlink_user_1 WITH PASSWORD 'chainlink_pass_1';")
 	is.Contains(sql, "CREATE DATABASE chainlink_node_1 OWNER chainlink_user_1;")
 	is.Contains(sql, "GRANT ALL PRIVILEGES ON DATABASE chainlink_node_1 TO chainlink_user_1;")
+}
+
+// TestNodeSetWithPostgresResources verifies that PostgreSQL resources are properly applied.
+func TestNodeSetWithPostgresResources(t *testing.T) {
+	t.Parallel()
+	internal.JSIIKernelMutex.Lock()
+	t.Cleanup(internal.JSIIKernelMutex.Unlock)
+
+	is := assert.New(t)
+	must := require.New(t)
+
+	// Setup test environment
+	app := internal.NewTestApp(t)
+	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
+
+	// Define test properties with custom PostgreSQL resources
+	testProps := &Props{
+		Namespace: "test-resources-namespace",
+		Size:      1,
+		PostgresResources: map[string]map[string]string{
+			"requests": {
+				"cpu":    "250m",
+				"memory": "256Mi",
+			},
+			"limits": {
+				"cpu":    "750m",
+				"memory": "768Mi",
+			},
+		},
+		NodeProps: []*chainlinknodev1.Props{
+			{
+				AppInstanceName: "test-node",
+				Image:           "chainlink/chainlink:latest",
+				Config:          "[Log]\nLevel = 'warn'",
+			},
+		},
+	}
+
+	// Create component
+	component, err := Component(testProps)(ctx)
+	must.NoError(err, "Component creation should succeed")
+	must.NotNil(component, "Component should not be nil")
+
+	// Verify the component was created successfully
+	result, ok := component.(Result)
+	must.True(ok, "Component should return a Result struct")
+	is.Len(result.Nodes, 1, "Should have exactly 1 node")
+}
+
+// TestNodeSetBackwardCompatibility verifies that the component works without PostgreSQL resources.
+func TestNodeSetBackwardCompatibility(t *testing.T) {
+	t.Parallel()
+	internal.JSIIKernelMutex.Lock()
+	t.Cleanup(internal.JSIIKernelMutex.Unlock)
+
+	is := assert.New(t)
+	must := require.New(t)
+
+	// Setup test environment
+	app := internal.NewTestApp(t)
+	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
+
+	// Define test properties without PostgreSQL resources (backward compatibility)
+	testProps := &Props{
+		Namespace: "test-backward-compat",
+		Size:      1,
+		NodeProps: []*chainlinknodev1.Props{
+			{
+				AppInstanceName: "compat-test-node",
+				Image:           "chainlink/chainlink:latest",
+				Config:          "[Log]\nLevel = 'warn'",
+			},
+		},
+	}
+
+	// Create component
+	component, err := Component(testProps)(ctx)
+	must.NoError(err, "Component creation should succeed without PostgreSQL resources")
+	must.NotNil(component, "Component should not be nil")
+
+	// Verify the component was created successfully
+	result, ok := component.(Result)
+	must.True(ok, "Component should return a Result struct")
+	is.Len(result.Nodes, 1, "Should have exactly 1 node")
+}
+
+// TestNodeSetWithEmptyPostgresResources verifies that empty PostgreSQL resources work correctly.
+func TestNodeSetWithEmptyPostgresResources(t *testing.T) {
+	t.Parallel()
+	internal.JSIIKernelMutex.Lock()
+	t.Cleanup(internal.JSIIKernelMutex.Unlock)
+
+	is := assert.New(t)
+	must := require.New(t)
+
+	// Setup test environment
+	app := internal.NewTestApp(t)
+	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
+
+	// Define test properties with empty PostgreSQL resources
+	testProps := &Props{
+		Namespace:         "test-empty-resources",
+		Size:              1,
+		PostgresResources: map[string]map[string]string{}, // Empty map
+		NodeProps: []*chainlinknodev1.Props{
+			{
+				AppInstanceName: "empty-resources-node",
+				Image:           "chainlink/chainlink:latest",
+				Config:          "[Log]\nLevel = 'warn'",
+			},
+		},
+	}
+
+	// Create component
+	component, err := Component(testProps)(ctx)
+	must.NoError(err, "Component creation should succeed with empty PostgreSQL resources")
+	must.NotNil(component, "Component should not be nil")
+
+	// Verify the component was created successfully
+	result, ok := component.(Result)
+	must.True(ok, "Component should return a Result struct")
+	is.Len(result.Nodes, 1, "Should have exactly 1 node")
 }

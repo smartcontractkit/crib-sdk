@@ -23,11 +23,12 @@ const (
 
 // Props contains properties for the NodeSet composite component.
 type Props struct {
-	Namespace           string                   `validate:"required"`
-	PostgresReleaseName string                   `default:"shared-postgres"`
-	PostgresPassword    string                   `default:"postgres"`
-	NodeProps           []*chainlinknodev1.Props `validate:"required"`
-	Size                int                      `validate:"required,min=1"`
+	Namespace           string                       `validate:"required"`
+	PostgresReleaseName string                       `default:"shared-postgres"`
+	PostgresPassword    string                       `default:"postgres"`
+	PostgresResources   map[string]map[string]string // Resource requirements for PostgreSQL (requests/limits)
+	NodeProps           []*chainlinknodev1.Props     `validate:"required"`
+	Size                int                          `validate:"required,min=1"`
 }
 
 type Result struct {
@@ -85,26 +86,35 @@ func nodeSet(ctx context.Context, props crib.Props) (crib.Component, error) {
 	initSQL := generateInitSQL(nodeSetProps)
 
 	// Create PostgreSQL database with custom initialization scripts
-	_, err := postgresv1.Component(&helmchartv1.ChartProps{
-		Namespace:   nodeSetProps.Namespace,
-		ReleaseName: nodeSetProps.PostgresReleaseName,
-		Values: map[string]any{
-			"fullnameOverride": nodeSetProps.PostgresReleaseName,
-			"auth": map[string]any{
-				"enablePostgresUser": true,
-				"postgresPassword":   nodeSetProps.PostgresPassword,
+	postgresValues := map[string]any{
+		"fullnameOverride": nodeSetProps.PostgresReleaseName,
+		"auth": map[string]any{
+			"enablePostgresUser": true,
+			"postgresPassword":   nodeSetProps.PostgresPassword,
+		},
+		"primary": map[string]any{
+			"persistence": map[string]any{
+				"enabled": false,
 			},
-			"primary": map[string]any{
-				"persistence": map[string]any{
-					"enabled": false,
-				},
-				"initdb": map[string]any{
-					"scripts": map[string]string{
-						"init.sql": initSQL,
-					},
+			"initdb": map[string]any{
+				"scripts": map[string]string{
+					"init.sql": initSQL,
 				},
 			},
 		},
+	}
+
+	// Add PostgreSQL resources if specified
+	if len(nodeSetProps.PostgresResources) > 0 {
+		if primary, ok := postgresValues["primary"].(map[string]any); ok {
+			primary["resources"] = nodeSetProps.PostgresResources
+		}
+	}
+
+	_, err := postgresv1.Component(&helmchartv1.ChartProps{
+		Namespace:   nodeSetProps.Namespace,
+		ReleaseName: nodeSetProps.PostgresReleaseName,
+		Values:      postgresValues,
 	})(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PostgreSQL component: %w", err)
