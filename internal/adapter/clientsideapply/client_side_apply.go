@@ -8,30 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"testing"
-	"time"
-
-	"github.com/theckman/yacspin"
 
 	"github.com/smartcontractkit/crib-sdk/internal/core/domain"
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
-
-var spinnerCfg = yacspin.Config{
-	Frequency:         100 * time.Millisecond,
-	Writer:            os.Stderr,
-	CharSet:           yacspin.CharSets[11],
-	Suffix:            " ", // puts at least one space between the animating spinner and the Message
-	Message:           "Executing configuration...",
-	SuffixAutoColon:   true,
-	ColorAll:          true,
-	Colors:            []string{"fgYellow"},
-	StopCharacter:     "✓",
-	StopColors:        []string{"fgGreen"},
-	StopMessage:       "Done!",
-	StopFailCharacter: "✗",
-	StopFailColors:    []string{"fgRed"},
-	StopFailMessage:   "failed",
-}
 
 type (
 	// EchoRunner is a client-side apply runner that writes arguments to a writer.
