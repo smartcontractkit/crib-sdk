@@ -3,13 +3,12 @@ module github.com/smartcontractkit/crib-sdk
 go 1.24.4
 
 require (
-	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alexflint/go-arg v1.5.1
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
 	github.com/aws/jsii-runtime-go v1.112.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8
 	github.com/charmbracelet/huh v0.7.0
 	github.com/creasty/defaults v1.8.0
@@ -31,6 +30,7 @@ require (
 )
 
 require (
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect

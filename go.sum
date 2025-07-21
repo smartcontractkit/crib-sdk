@@ -28,8 +28,8 @@ github.com/brianvoe/gofakeit/v7 v7.3.0 h1:TWStf7/lLpAjKw+bqwzeORo9jvrxToWEwp9b1J
 github.com/brianvoe/gofakeit/v7 v7.3.0/go.mod h1:QXuPeBw164PJCzCUZVmgpgHJ3Llj49jSLVkKPMtxtxA=
 github.com/catppuccin/go v0.3.0 h1:d+0/YicIq+hSTo5oPuRi5kOpqkVA5tAsU6dNhvRu+aY=
 github.com/catppuccin/go v0.3.0/go.mod h1:8IHJuMGaUUjQM82qBrGNBv7LFq6JI3NnQCF6MOlZjpc=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76 h1:3p3ygjYCNZ9wqPbbQ7oeDZEhY7xX8UPJs/pOuhxBP+E=
-github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.69.76/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2 h1:6khni3TG7XJsyXgg5gdbY/IZCiBnpAi8XVZZUBizGUc=
+github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8 h1:vtT/G9hb1fstaeS52wcSYDKmZY0qExoroP5lhiFQe8U=
 github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8/go.mod h1:7uUKWwq8GOkVQFkVH9ymTajphRFJM6HeHhIQ3S/tFJw=
 github.com/charmbracelet/bubbles v0.21.0 h1:9TdC97SdRVg/1aaXNVWfFH3nnLAwOXr8Fn6u6mfQdFs=
