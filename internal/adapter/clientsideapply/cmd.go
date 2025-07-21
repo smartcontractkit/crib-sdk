@@ -2,14 +2,13 @@ package clientsideapply
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 
 	"github.com/samber/lo"
-	"github.com/theckman/yacspin"
 
 	"github.com/smartcontractkit/crib-sdk/internal/adapter/mempools"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
@@ -44,19 +43,14 @@ func (c *CmdRunner) Execute(ctx context.Context, input *domain.ClientSideApplyMa
 	mu.Lock()
 	defer mu.Unlock()
 
-	spin, stop := showProgress()
-	spin.StopMessage(fmt.Sprintf("Executing %s", input.Spec.Action))
-
 	// Run the command, collecting the output of the command.
 	// Note: The output should have also been streamed to stdout/stderr.
 	// Possible gotcha here, we may need to inspect the output of the command
 	// to fully determine success or failure and not just the exit code.
 	res, err := combinedOutput(e)
 	if err != nil {
-		_ = spin.StopFail()
 		return nil, err
 	}
-	stop()
 
 	return &domain.RunnerResult{
 		Output: res,
@@ -69,22 +63,9 @@ func combinedOutput(cmd *exec.Cmd) ([]byte, error) {
 	buf, reset := mempools.BytesBuffer.Get()
 	defer reset()
 	// tee stdout to both os.Stdout and buf
-	cmd.Stdout = buf
+	cmd.Stdout = io.MultiWriter(os.Stdout, buf)
 	// tee stderr to both os.Stderr and buf
-	cmd.Stderr = buf
+	cmd.Stderr = io.MultiWriter(os.Stderr, buf)
 	err := cmd.Run()
 	return dry.Wrapf2(buf.Bytes(), err, "running command %q", strings.Join(cmd.Args, " "))
-}
-
-func showProgress() (spinner *yacspin.Spinner, stopFn func()) {
-	spinner, err := yacspin.New(spinnerCfg)
-	if err != nil {
-		return spinner, func() {}
-	}
-	if err := spinner.Start(); err != nil {
-		return spinner, func() {}
-	}
-	return spinner, func() {
-		_ = spinner.Stop()
-	}
 }
