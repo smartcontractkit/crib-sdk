@@ -3,7 +3,6 @@ module github.com/smartcontractkit/crib-sdk
 go 1.24.4
 
 require (
-	dario.cat/mergo v1.0.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alexflint/go-arg v1.5.1
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
@@ -26,11 +25,12 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/theckman/yacspin v0.13.12
 	github.com/xlab/treeprint v1.2.0
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.26.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
