@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/smartcontractkit/crib-sdk/compare/v0.2.0...v0.3.0) (2025-07-21)
+
+
+### Features
+
+* trigger release ([#12](https://github.com/smartcontractkit/crib-sdk/issues/12)) ([2388bb8](https://github.com/smartcontractkit/crib-sdk/commit/2388bb80c1df89dfa21e76c4f69c5bf2990d67e0))
+
 ## [0.2.0](https://github.com/smartcontractkit/crib-sdk/compare/v0.1.0...v0.2.0) (2025-07-18)
 
 
