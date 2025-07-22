@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alexflint/go-arg v1.5.1
+	github.com/alexflint/go-arg v1.6.0
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
 	github.com/aws/jsii-runtime-go v1.112.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
@@ -20,12 +20,12 @@ require (
 	github.com/samber/lo v1.51.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/theckman/yacspin v0.13.12
 	github.com/xlab/treeprint v1.2.0
-	golang.org/x/mod v0.25.0
+	golang.org/x/mod v0.26.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -56,7 +56,7 @@ require (
 	github.com/gkampitakis/go-diff v1.3.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
+	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/google/licensecheck v0.3.1 // indirect
 	github.com/google/safehtml v0.0.3-0.20211026203422-d6f0e11a5516 // indirect
