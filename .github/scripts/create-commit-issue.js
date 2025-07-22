@@ -52,7 +52,7 @@ Please update the commit message to follow the conventional format. You can do t
     title: `🚨 Invalid commit message format on main branch`,
     body: issueBody,
     labels: ['process', 'commit-format'],
-    assignees: [context.payload.head_commit.author.name]
+    assignees: [githubUsername || 'default-user']
   });
 
   console.log(`Created issue #${issue.number} for commit message violation`);
