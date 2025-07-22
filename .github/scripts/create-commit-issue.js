@@ -51,7 +51,7 @@ Please update the commit message to follow the conventional format. You can do t
     repo: context.repo.repo,
     title: `🚨 Invalid commit message format on main branch`,
     body: issueBody,
-    labels: ['bug', 'documentation', 'enhancement'],
+    labels: ['process', 'commit-format'],
     assignees: [context.payload.head_commit.author.name]
   });
   
