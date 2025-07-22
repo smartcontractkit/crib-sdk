@@ -1,5 +1,8 @@
 apiVersion: v1
-kind: Service
+data:
+  client.yaml: "dns:\n  excludeSuffixes:\n  - .com\n  - .io\n  - .net\n  - .org\n  - .ru\n"
+  namespace-selector.yaml: "matchExpressions:\n- key: kubernetes.io/metadata.name\n  operator: In\n  values:\n  - test-namespace\n"
+kind: ConfigMap
 metadata:
   labels:
     app: traffic-manager
@@ -14,13 +17,3 @@ metadata:
     telepresence: manager
   name: traffic-manager
   namespace: test-namespace
-spec:
-  clusterIP: None
-  ports:
-    - name: api
-      port: 8081
-      targetPort: api
-  selector:
-    app: traffic-manager
-    telepresence: manager
-  type: ClusterIP
