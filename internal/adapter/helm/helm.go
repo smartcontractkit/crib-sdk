@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
 
-//go:generate asdf exec go tool gowrap gen -p github.com/smartcontractkit/crib-sdk/internal/core/port -i HelmClient -t timeout -g -o helm_timeout_gen.go
-//go:generate asdf exec go tool gowrap gen -p github.com/smartcontractkit/crib-sdk/internal/core/port -i HelmClient -t retry -g -o helm_retry_gen.go
+//go:generate asdf exec go tool gowrap gen -p github.com/smartcontractkit/crib-sdk/internal/core/port -i HelmClient -t templates/timeout -g -o helm_timeout_gen.go
+//go:generate asdf exec go tool gowrap gen -p github.com/smartcontractkit/crib-sdk/internal/core/port -i HelmClient -t templates/retry -g -o helm_retry_gen.go
 
 // Client is a Helm client that implements the port.HelmClient interface.
 type Client struct {
