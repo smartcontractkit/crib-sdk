@@ -6,4 +6,5 @@ use (
 	.
 	examples/nodeset-example
 	examples/nodeset-shared-postgres-example
+	tests/regression/cdk8s-go
 )
