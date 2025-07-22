@@ -1,3 +1,4 @@
+---
 name: "Enforce Conventional Commit Messages"
 
 on:
@@ -74,6 +75,6 @@ jobs:
         if: steps.check-author.outputs.is_human == 'true' && steps.validate-commit.outputs.is_valid == 'false'
         uses: actions/github-script@v7
         with:
-          script: |
+          script: |-
             const createIssue = require('./.github/scripts/create-commit-issue.js');
             await createIssue({github, context});

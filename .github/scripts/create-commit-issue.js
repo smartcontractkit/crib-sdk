@@ -6,7 +6,7 @@ A commit was merged to the \`main\` branch that doesn't follow the conventional 
 ### Details:
 - **Author**: ${context.payload.head_commit.author.name} (${context.payload.head_commit.author.email})
 - **Commit SHA**: \`${context.payload.head_commit.id}\`
-- **Commit Message**: 
+- **Commit Message**:
 \`\`\`
 ${context.payload.head_commit.message}
 \`\`\`
@@ -54,6 +54,6 @@ Please update the commit message to follow the conventional format. You can do t
     labels: ['bug', 'documentation', 'enhancement'],
     assignees: [context.payload.head_commit.author.name]
   });
-  
+
   console.log(`Created issue #${issue.number} for commit message violation`);
-}; 
+};

@@ -16,7 +16,7 @@ This directory contains GitHub Actions workflows for the crib-sdk repository.
 2. Validates the commit message against conventional commit format
 3. Creates an issue and assigns it to the author if the format is invalid
 
-**Why this exists**: 
+**Why this exists**:
 
 - Release Please requires conventional commit messages to generate proper changelogs and version bumps
 - While pre-commit hooks can enforce this locally, GitHub's "Squash & Merge" feature allows overriding commit messages
