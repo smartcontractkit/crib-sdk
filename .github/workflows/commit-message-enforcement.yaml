@@ -76,5 +76,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |-
-            const createIssue = require('./.github/scripts/create-commit-issue.js');
-            await createIssue({github, context});
+            // Inline the functionality of create-commit-issue.js
+            const issueTitle = "Invalid Commit Message";
+            const issueBody = `The commit message "${context.payload.head_commit.message}" does not follow the conventional commit format. Please update it to match the required format.`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+            });
