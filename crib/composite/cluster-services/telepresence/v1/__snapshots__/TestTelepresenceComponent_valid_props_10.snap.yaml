@@ -1,16 +1,16 @@
 apiVersion: crib.smartcontract.com/v1alpha1
 kind: ClientSideApply
 metadata:
-  name: testingapp-5b9bc-sdk-clientsideapply-81f3d502-c8f4cd8e
-  namespace: test-namespace
+  name: sdk-composite-te-sdk-clientsideapply-851cb4a2-c857d635
+  namespace: default
 spec:
-  action: kubectl
+  action: telepresence
   args:
-    - wait
-    - -n
+    - connect
+    - --namespace
     - test-namespace
-    - --for=condition=available
-    - deployment
-    - -l=app=traffic-manager,telepresence=manager
-    - --timeout=600s
+    - --mapped-namespaces
+    - test-namespace
+    - --manager-namespace
+    - test-namespace
   onFailure: abort

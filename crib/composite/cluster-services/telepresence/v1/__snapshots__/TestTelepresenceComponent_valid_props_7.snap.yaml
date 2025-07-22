@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
   labels:
     app: traffic-manager
@@ -15,58 +15,12 @@ metadata:
   name: traffic-manager
   namespace: test-namespace
 spec:
-  replicas: 1
+  clusterIP: None
+  ports:
+    - name: api
+      port: 8081
+      targetPort: api
   selector:
-    matchLabels:
-      app: traffic-manager
-      telepresence: manager
-  template:
-    metadata:
-      labels:
-        app: traffic-manager
-        telepresence: manager
-    spec:
-      containers:
-        - env:
-            - name: LOG_LEVEL
-              value: info
-            - name: REGISTRY
-              value: ghcr.io/telepresenceio
-            - name: SERVER_PORT
-              value: "8081"
-            - name: POD_CIDR_STRATEGY
-              value: auto
-            - name: GRPC_MAX_RECEIVE_SIZE
-              value: 4Mi
-            - name: CLIENT_CONNECTION_TTL
-              value: 24h
-            - name: ENABLED_WORKLOAD_KINDS
-              value: Deployment StatefulSet ReplicaSet
-            - name: MAX_NAMESPACE_SPECIFIC_WATCHERS
-              value: "10"
-            - name: MANAGER_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: status.podIP
-            - name: CLIENT_DNS_EXCLUDE_SUFFIXES
-              value: .com .io .net .org .ru
-          image: ghcr.io/telepresenceio/tel2:2.23.3
-          imagePullPolicy: IfNotPresent
-          name: traffic-manager
-          ports:
-            - containerPort: 8081
-              name: api
-            - containerPort: 443
-              name: https
-          securityContext:
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 1000
-      serviceAccount: traffic-manager
-      serviceAccountName: traffic-manager
+    app: traffic-manager
+    telepresence: manager
+  type: ClusterIP

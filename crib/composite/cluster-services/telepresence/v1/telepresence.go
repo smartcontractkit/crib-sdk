@@ -24,6 +24,8 @@ const ComponentName = "sdk.composite.telepresence.v1"
 
 type Props struct {
 	Namespace string `validate:"required"`
+	// QuitBeforeRunning quits existing telepresence processes on the user machine
+	QuitBeforeRunning bool
 }
 
 // Validate validates the props.
@@ -102,6 +104,21 @@ func telepresenceComposite(ctx context.Context, props crib.Props) (crib.Componen
 		return nil, dry.Wrapf(err, "failed to wait for telepresence")
 	}
 
+	if telepresenceProps.QuitBeforeRunning {
+		// Create client side apply to quit existing telepresence
+		quitTelepresenceClientSideApply, quitErr := clientsideapply.New(ctx, &clientsideapply.Props{
+			Namespace: telepresenceProps.Namespace,
+			OnFailure: "abort",
+			Action:    "telepresence",
+			Args:      []string{"quit", "--stop-daemons"},
+		})
+		if quitErr != nil {
+			return nil, dry.Wrapf(quitErr, "failed to quit telepresence")
+		}
+
+		telepresenceComponent.Node().AddDependency(crib.ComponentState[*clientsideapply.Result](quitTelepresenceClientSideApply).Component)
+	}
+
 	// client side apply to connect to telepresence
 	connectTelepresence, err := clientsideapply.New(ctx, &clientsideapply.Props{
 		Namespace: "default",
@@ -109,6 +126,12 @@ func telepresenceComposite(ctx context.Context, props crib.Props) (crib.Componen
 		Action:    "telepresence",
 		Args: []string{
 			"connect",
+			"--namespace",
+			telepresenceProps.Namespace,
+			"--mapped-namespaces",
+			telepresenceProps.Namespace,
+			"--manager-namespace",
+			telepresenceProps.Namespace,
 		},
 	})
 	if err != nil {

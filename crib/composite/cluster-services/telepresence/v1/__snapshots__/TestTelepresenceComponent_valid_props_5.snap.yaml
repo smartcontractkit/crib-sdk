@@ -1,19 +1,11 @@
-apiVersion: v1
-data:
-  client.yaml: "dns:\n  excludeSuffixes:\n  - .com\n  - .io\n  - .net\n  - .org\n  - .ru\n"
-  namespace-selector.yaml: "matchExpressions:\n- key: kubernetes.io/metadata.name\n  operator: In\n  values:\n  - test-namespace\n"
-kind: ConfigMap
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
 metadata:
-  labels:
-    app: traffic-manager
-    app.kubernetes.io/created-by: Helm
-    app.kubernetes.io/managed-by: Helm
-    app.kubernetes.io/version: 2.23.3
-    helm.crib.sdk/chart: telepresence-oss
-    helm.crib.sdk/name: telepresence-oss
-    helm.crib.sdk/namespace: test-namespace
-    helm.crib.sdk/release: traffic-manager
-    helm.sh/chart: telepresence-oss-2.23.3
-    telepresence: manager
-  name: traffic-manager
+  name: sdk-composite-te-sdk-clientsideapply-4fd1e062-c88fca48
   namespace: test-namespace
+spec:
+  action: telepresence
+  args:
+    - quit
+    - --stop-daemons
+  onFailure: abort
