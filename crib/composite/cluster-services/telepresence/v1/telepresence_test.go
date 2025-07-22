@@ -19,7 +19,8 @@ func TestTelepresenceComponent(t *testing.T) {
 		ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
 
 		props := &Props{
-			Namespace: "test-namespace",
+			Namespace:         "test-namespace",
+			QuitBeforeRunning: true,
 		}
 
 		component := Component(props)
