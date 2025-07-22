@@ -1,0 +1,79 @@
+name: "Enforce Conventional Commit Messages"
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-commit-message:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if author is human
+        id: check-author
+        run: |
+          # Get the commit author
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:%ae)
+          AUTHOR_NAME=$(git log -1 --pretty=format:%an)
+
+          # Check if author is a bot (common bot patterns)
+          if [[ "$AUTHOR_EMAIL" == *"noreply@github.com"* ]] || \
+             [[ "$AUTHOR_EMAIL" == *"bot@github.com"* ]] || \
+             [[ "$AUTHOR_NAME" == *"[bot]"* ]] || \
+             [[ "$AUTHOR_NAME" == *"bot"* ]] || \
+             [[ "$AUTHOR_EMAIL" == *"dependabot"* ]] || \
+             [[ "$AUTHOR_EMAIL" == *"renovate"* ]] || \
+             [[ "$AUTHOR_EMAIL" == *"release-please"* ]]; then
+            {
+              echo "is_human=false"
+              echo "author_name=$AUTHOR_NAME"
+              echo "author_email=$AUTHOR_EMAIL"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "is_human=true"
+              echo "author_name=$AUTHOR_NAME"
+              echo "author_email=$AUTHOR_EMAIL"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate commit message format
+        id: validate-commit
+        if: steps.check-author.outputs.is_human == 'true'
+        run: |
+          # Get the commit message
+          COMMIT_MSG=$(git log -1 --pretty=format:%B)
+
+          # Conventional commit regex pattern
+          # Format: <type>[optional scope]: <description>
+          # Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+          CONVENTIONAL_PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?: .+'
+
+          if [[ "$COMMIT_MSG" =~ $CONVENTIONAL_PATTERN ]]; then
+            {
+              echo "is_valid=true"
+              echo "commit_msg=$COMMIT_MSG"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "is_valid=false"
+              echo "commit_msg=$COMMIT_MSG"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create issue for invalid commit message
+        if: steps.check-author.outputs.is_human == 'true' && steps.validate-commit.outputs.is_valid == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const createIssue = require('./.github/scripts/create-commit-issue.js');
+            await createIssue({github, context});
