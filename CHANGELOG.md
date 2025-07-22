@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/smartcontractkit/crib-sdk/compare/v0.3.0...v0.4.0) (2025-07-22)
+
+
+### Features
+
+* Option to quit existing telepresence session ([#18](https://github.com/smartcontractkit/crib-sdk/issues/18)) ([8f3d5ba](https://github.com/smartcontractkit/crib-sdk/commit/8f3d5ba49ae3ac9ea523f369fa69314598b721f5))
+
+
+### Bug Fixes
+
+* Address go:generate flakiness by locally vendoring the used templates ([#15](https://github.com/smartcontractkit/crib-sdk/issues/15)) ([d115a6c](https://github.com/smartcontractkit/crib-sdk/commit/d115a6cd49b0ca53eb16f48f301492bd5bddd2bb))
+
 ## [0.3.0](https://github.com/smartcontractkit/crib-sdk/compare/v0.2.0...v0.3.0) (2025-07-21)
 
 
