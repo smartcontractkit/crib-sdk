@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alexflint/go-arg v1.5.1
+	github.com/alexflint/go-arg v1.6.0
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
 	github.com/aws/jsii-runtime-go v1.112.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
