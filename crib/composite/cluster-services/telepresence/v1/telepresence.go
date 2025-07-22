@@ -113,7 +113,7 @@ func telepresenceComposite(ctx context.Context, props crib.Props) (crib.Componen
 			Args:      []string{"quit", "--stop-daemons"},
 		})
 		if quitErr != nil {
-			return nil, dry.Wrapf(err, "failed to quit telepresence")
+			return nil, dry.Wrapf(quitErr, "failed to quit telepresence")
 		}
 
 		telepresenceComponent.Node().AddDependency(crib.ComponentState[*clientsideapply.Result](quitTelepresenceClientSideApply).Component)
