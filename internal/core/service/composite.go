@@ -501,55 +501,105 @@ func (c *Composite) ExecuteComponent(comp AutoComponent) error {
 func (c *Composite) valueForType(paramType reflect.Type) (reflect.Value, error) {
 	switch paramType.Kind() {
 	case reflect.Interface:
-		c.mu.RLock()
-		var foundValue reflect.Value
-		var found bool
-
-		// Look through all available results to find one that implements this interface
-		for _, resultValue := range c.results {
-			if reflect.TypeOf(resultValue).Implements(paramType) {
-				foundValue = reflect.ValueOf(resultValue)
-				found = true
-				break
-			}
-		}
-		c.mu.RUnlock()
-
-		if !found {
+		implementations := c.findImplementations(paramType)
+		if len(implementations) == 0 {
 			return voidValue(), fmt.Errorf("missing dependency %s (no concrete type found that implements this interface)", paramType)
 		}
-		return foundValue, nil
+		return implementations[0], nil
 
 	case reflect.Slice:
-		// Handle slice parameters - collect all instances of element type
 		elemType := paramType.Elem()
+		implementations := c.findImplementations(elemType)
+		return c.createSliceFromValues(implementations, paramType), nil
+
+	default:
+		// Handle regular concrete type parameters
 		c.mu.RLock()
-		instances, exists := c.sliceResults[elemType]
+		value, exists := c.results[paramType]
 		c.mu.RUnlock()
 
 		if !exists {
-			instances = []any{}
+			return voidValue(), fmt.Errorf("no registered component provides missing dependency %s", paramType)
 		}
-
-		// Convert to proper slice type
-		sliceValue := reflect.MakeSlice(paramType, len(instances), len(instances))
-		for j, instance := range instances {
-			sliceValue.Index(j).Set(reflect.ValueOf(instance))
-		}
-		return sliceValue, nil
-	default:
-		break // Handle other types below
+		return reflect.ValueOf(value), nil
 	}
+}
 
-	// Handle regular parameters
+// findImplementations finds all instances that satisfy the given type.
+// For interface types, it searches both results and sliceResults for implementations.
+// For concrete types, it gets instances from sliceResults.
+func (c *Composite) findImplementations(targetType reflect.Type) []reflect.Value {
 	c.mu.RLock()
-	value, exists := c.results[paramType]
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
 
-	if !exists {
-		return voidValue(), fmt.Errorf("no registered component provides missing dependency %s", paramType)
+	var implementations []reflect.Value
+	seen := make(map[string]bool)
+
+	if targetType.Kind() == reflect.Interface {
+		// For interface types, search both maps for implementations
+		c.findInterfaceImplementations(targetType, &implementations, seen)
+	} else {
+		// For concrete types, get instances from sliceResults
+		if instances, exists := c.sliceResults[targetType]; exists {
+			for _, instance := range instances {
+				val := reflect.ValueOf(instance)
+				key := c.createUniqueKey(instance)
+				if !seen[key] {
+					implementations = append(implementations, val)
+					seen[key] = true
+				}
+			}
+		}
 	}
-	return reflect.ValueOf(value), nil
+
+	return implementations
+}
+
+// findInterfaceImplementations searches both results and sliceResults for interface implementations
+func (c *Composite) findInterfaceImplementations(targetType reflect.Type, implementations *[]reflect.Value, seen map[string]bool) {
+	// Search main results map
+	for _, resultValue := range c.results {
+		if reflect.TypeOf(resultValue).Implements(targetType) {
+			val := reflect.ValueOf(resultValue)
+			key := c.createUniqueKey(resultValue)
+			if !seen[key] {
+				*implementations = append(*implementations, val)
+				seen[key] = true
+			}
+		}
+	}
+
+	// Search slice results map
+	for _, sliceInstances := range c.sliceResults {
+		for _, instance := range sliceInstances {
+			if reflect.TypeOf(instance).Implements(targetType) {
+				val := reflect.ValueOf(instance)
+				key := c.createUniqueKey(instance)
+				if !seen[key] {
+					*implementations = append(*implementations, val)
+					seen[key] = true
+				}
+			}
+		}
+	}
+}
+
+// createUniqueKey generates a unique key for deduplication based on type and pointer/value
+func (c *Composite) createUniqueKey(value any) string {
+	val := reflect.ValueOf(value)
+	if val.Kind() == reflect.Ptr {
+		return fmt.Sprintf("%s:%x", reflect.TypeOf(value), val.Pointer())
+	}
+	return fmt.Sprintf("%s:%v", reflect.TypeOf(value), value)
+}
+
+// createSliceFromValues creates a slice of the specified type from the given values
+func (c *Composite) createSliceFromValues(values []reflect.Value, sliceType reflect.Type) reflect.Value {
+	sliceValue := reflect.MakeSlice(sliceType, len(values), len(values))
+	for i, val := range values {
+		sliceValue.Index(i).Set(val)
+	}
+	return sliceValue
 }
 
 func newConstructorRefs(ctors ...any) constructorRefs {

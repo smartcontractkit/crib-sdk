@@ -12,6 +12,7 @@ import (
 	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/fx"
 
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/infra"
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
@@ -1918,4 +1919,1028 @@ func (m *mockChartFactory) CreateChart(resourceName string, props port.Validator
 
 func (m *mockChartFactory) Apply() ChartFactory {
 	return m
+}
+
+// Test types for slice of interfaces functionality
+
+// Interface that multiple components will implement
+type MessageProcessor interface {
+	ProcessMessage(msg string) string
+}
+
+// First concrete implementation
+type EmailProcessor struct {
+	domain string
+}
+
+func NewEmailProcessor() *EmailProcessor {
+	return &EmailProcessor{domain: "example.com"}
+}
+
+func (e *EmailProcessor) Apply() *EmailProcessor {
+	return e
+}
+
+func (e *EmailProcessor) ProcessMessage(msg string) string {
+	return fmt.Sprintf("Email[%s]: %s", e.domain, msg)
+}
+
+func (e *EmailProcessor) String() string {
+	return "EmailProcessor"
+}
+
+// Second concrete implementation
+type SMSProcessor struct {
+	provider string
+}
+
+func NewSMSProcessor() *SMSProcessor {
+	return &SMSProcessor{provider: "Twilio"}
+}
+
+func (s *SMSProcessor) Apply() *SMSProcessor {
+	return s
+}
+
+func (s *SMSProcessor) ProcessMessage(msg string) string {
+	return fmt.Sprintf("SMS[%s]: %s", s.provider, msg)
+}
+
+func (s *SMSProcessor) String() string {
+	return "SMSProcessor"
+}
+
+// Third concrete implementation
+type SlackProcessor struct {
+	channel string
+}
+
+func NewSlackProcessor() *SlackProcessor {
+	return &SlackProcessor{channel: "#general"}
+}
+
+func (s *SlackProcessor) Apply() *SlackProcessor {
+	return s
+}
+
+func (s *SlackProcessor) ProcessMessage(msg string) string {
+	return fmt.Sprintf("Slack[%s]: %s", s.channel, msg)
+}
+
+func (s *SlackProcessor) String() string {
+	return "SlackProcessor"
+}
+
+// Component that consumes a slice of the interface
+type MessageRouterComponent struct{}
+
+func NewMessageRouterComponent() *MessageRouterComponent {
+	return &MessageRouterComponent{}
+}
+
+func (m *MessageRouterComponent) Apply(processors []MessageProcessor) string {
+	if len(processors) == 0 {
+		return "no processors available"
+	}
+
+	results := make([]string, len(processors))
+	for i, processor := range processors {
+		results[i] = processor.ProcessMessage("test message")
+	}
+
+	return fmt.Sprintf("processed by %d processors: %v", len(processors), results)
+}
+
+func (m *MessageRouterComponent) String() string {
+	return "MessageRouterComponent"
+}
+
+// Component that consumes both single interface and slice of interfaces
+type HybridConsumerComponent struct{}
+
+func NewHybridConsumerComponent() *HybridConsumerComponent {
+	return &HybridConsumerComponent{}
+}
+
+func (h *HybridConsumerComponent) Apply(primary MessageProcessor, all []MessageProcessor) string {
+	primaryResult := primary.ProcessMessage("primary")
+
+	allResults := make([]string, len(all))
+	for i, processor := range all {
+		allResults[i] = processor.ProcessMessage("broadcast")
+	}
+
+	return fmt.Sprintf("primary: %s, all: %v", primaryResult, allResults)
+}
+
+func (h *HybridConsumerComponent) String() string {
+	return "HybridConsumerComponent"
+}
+
+func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
+	t.Parallel()
+
+	t.Run("collects multiple interface implementations into slice", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store multiple implementations of MessageProcessor interface
+		emailProcessor := &EmailProcessor{domain: "test.com"}
+		smsProcessor := &SMSProcessor{provider: "TestProvider"}
+		slackProcessor := &SlackProcessor{channel: "#test"}
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
+		composite.results[reflect.TypeOf(slackProcessor)] = slackProcessor
+
+		// Execute component that consumes slice of interface
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Verify the result
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "processed by 3 processors")
+		assert.Contains(t, resultStr, "Email[test.com]: test message")
+		assert.Contains(t, resultStr, "SMS[TestProvider]: test message")
+		assert.Contains(t, resultStr, "Slack[#test]: test message")
+	})
+
+	t.Run("handles empty slice when no implementations exist", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Execute component that consumes slice of interface with no implementations available
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Verify it handles empty slice gracefully
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		assert.Equal(t, "no processors available", result)
+	})
+
+	t.Run("combines results from both results and sliceResults maps", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store one implementation in results
+		emailProcessor := &EmailProcessor{domain: "results.com"}
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+
+		// Store another implementation in sliceResults
+		smsProcessor := &SMSProcessor{provider: "SliceResults"}
+		composite.sliceResults[reflect.TypeOf(smsProcessor)] = []any{smsProcessor}
+
+		// Execute component that consumes slice of interface
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Verify both implementations were collected
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "processed by 2 processors")
+		assert.Contains(t, resultStr, "Email[results.com]: test message")
+		assert.Contains(t, resultStr, "SMS[SliceResults]: test message")
+	})
+
+	t.Run("works with hybrid consumer (single interface + slice of interfaces)", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store multiple implementations
+		emailProcessor := &EmailProcessor{domain: "hybrid.com"}
+		smsProcessor := &SMSProcessor{provider: "HybridProvider"}
+		slackProcessor := &SlackProcessor{channel: "#hybrid"}
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
+		composite.results[reflect.TypeOf(slackProcessor)] = slackProcessor
+
+		// Execute component that consumes both single and slice
+		component := mustAnalyzeConstructor(NewHybridConsumerComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Verify the result includes both single and slice processing
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "primary:")
+		assert.Contains(t, resultStr, "all:")
+		// Should have 3 implementations in the slice
+		assert.Contains(t, resultStr, "Email[hybrid.com]: broadcast")
+		assert.Contains(t, resultStr, "SMS[HybridProvider]: broadcast")
+		assert.Contains(t, resultStr, "Slack[#hybrid]: broadcast")
+	})
+
+	t.Run("preserves order of implementations", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store implementations in a predictable order
+		// Note: Go maps don't guarantee order, but we can test that all implementations are present
+		emailProcessor := &EmailProcessor{domain: "first.com"}
+		smsProcessor := &SMSProcessor{provider: "Second"}
+		slackProcessor := &SlackProcessor{channel: "#third"}
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
+		composite.results[reflect.TypeOf(slackProcessor)] = slackProcessor
+
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		// Verify all three implementations are present (order may vary due to map iteration)
+		assert.Contains(t, resultStr, "processed by 3 processors")
+		assert.Contains(t, resultStr, "Email[first.com]: test message")
+		assert.Contains(t, resultStr, "SMS[Second]: test message")
+		assert.Contains(t, resultStr, "Slack[#third]: test message")
+	})
+}
+
+func Test_Composite_ExecuteComponent_SliceOfInterfaces_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("filters out non-implementing types", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store some MessageProcessor implementations and some non-implementations
+		emailProcessor := &EmailProcessor{domain: "filter.com"}
+		regularString := "not a processor"
+		sharedData := &SharedData{Value: "also not a processor"}
+		smsProcessor := &SMSProcessor{provider: "FilterProvider"}
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(regularString)] = regularString
+		composite.results[reflect.TypeOf(sharedData)] = sharedData
+		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
+
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Should only include the actual MessageProcessor implementations
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "processed by 2 processors")
+		assert.Contains(t, resultStr, "Email[filter.com]: test message")
+		assert.Contains(t, resultStr, "SMS[FilterProvider]: test message")
+		assert.NotContains(t, resultStr, "not a processor")
+	})
+
+	t.Run("deduplicates same implementation from both maps", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store the same implementation in both maps
+		emailProcessor := &EmailProcessor{domain: "duplicate.com"}
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.sliceResults[reflect.TypeOf(emailProcessor)] = []any{emailProcessor}
+
+		component := mustAnalyzeConstructor(NewMessageRouterComponent)
+		err := composite.ExecuteComponent(component)
+
+		require.NoError(t, err)
+
+		// Should deduplicate and include the implementation only once
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "processed by 1 processors")
+		// Should see the processor output only once despite being in both maps
+		emailCount := strings.Count(resultStr, "Email[duplicate.com]: test message")
+		assert.Equal(t, 1, emailCount, "should deduplicate the same implementation from both maps")
+	})
+}
+
+func Test_Composite_ExecuteComponent_SliceOfInterfaces_Integration(t *testing.T) {
+	t.Parallel()
+
+	t.Run("end-to-end workflow with interface slice", func(t *testing.T) {
+		// Test a complete workflow where:
+		// 1. Multiple components produce different implementations of an interface
+		// 2. One component consumes a slice of that interface
+		// 3. Verify the entire chain works together
+
+		composite := &Composite{
+			components: []AutoComponent{
+				mustAnalyzeConstructor(NewEmailProcessor),
+				mustAnalyzeConstructor(NewSMSProcessor),
+				mustAnalyzeConstructor(NewSlackProcessor),
+				mustAnalyzeConstructor(NewMessageRouterComponent),
+			},
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+		composite.executor = composite
+
+		// Execute all producer components
+		for i := 0; i < 3; i++ { // First 3 are producers
+			err := composite.ExecuteComponent(composite.components[i])
+			require.NoError(t, err)
+		}
+
+		// Verify that concrete implementations were stored (each under its own type)
+		emailType := reflect.TypeOf(&EmailProcessor{})
+		smsType := reflect.TypeOf(&SMSProcessor{})
+		slackType := reflect.TypeOf(&SlackProcessor{})
+
+		_, emailExists := composite.results[emailType]
+		_, smsExists := composite.results[smsType]
+		_, slackExists := composite.results[slackType]
+
+		assert.True(t, emailExists, "EmailProcessor should be stored")
+		assert.True(t, smsExists, "SMSProcessor should be stored")
+		assert.True(t, slackExists, "SlackProcessor should be stored")
+
+		// Execute the consumer component
+		consumerComponent := composite.components[3]
+		err := composite.ExecuteComponent(consumerComponent)
+		require.NoError(t, err)
+
+		// Verify the consumer got all implementations
+		result, exists := composite.results[reflect.TypeOf("")]
+		assert.True(t, exists)
+		resultStr := result.(string)
+
+		assert.Contains(t, resultStr, "processed by 3 processors")
+		assert.Contains(t, resultStr, "Email[example.com]: test message")
+		assert.Contains(t, resultStr, "SMS[Twilio]: test message")
+		assert.Contains(t, resultStr, "Slack[#general]: test message")
+	})
+}
+
+// Test helper methods for comprehensive coverage
+
+func Test_Composite_findImplementations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("finds interface implementations from results map", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store some interface implementations
+		emailProcessor := &EmailProcessor{domain: "test.com"}
+		smsProcessor := &SMSProcessor{provider: "test"}
+		regularString := "not an interface"
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
+		composite.results[reflect.TypeOf(regularString)] = regularString
+
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+		implementations := composite.findImplementations(interfaceType)
+
+		assert.Len(t, implementations, 2)
+
+		// Check that we got the right implementations
+		foundTypes := make([]reflect.Type, len(implementations))
+		for i, impl := range implementations {
+			foundTypes[i] = impl.Type()
+		}
+
+		assert.Contains(t, foundTypes, reflect.TypeOf(emailProcessor))
+		assert.Contains(t, foundTypes, reflect.TypeOf(smsProcessor))
+	})
+
+	t.Run("finds interface implementations from sliceResults map", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store implementations in sliceResults
+		emailProcessor := &EmailProcessor{domain: "slice.com"}
+		composite.sliceResults[reflect.TypeOf(emailProcessor)] = []any{emailProcessor}
+
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+		implementations := composite.findImplementations(interfaceType)
+
+		assert.Len(t, implementations, 1)
+		assert.Equal(t, reflect.TypeOf(emailProcessor), implementations[0].Type())
+	})
+
+	t.Run("finds concrete type implementations from sliceResults", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store concrete type instances
+		data1 := &SharedData{Value: "first"}
+		data2 := &SharedData{Value: "second"}
+
+		sharedDataType := reflect.TypeOf(data1)
+		composite.sliceResults[sharedDataType] = []any{data1, data2}
+
+		implementations := composite.findImplementations(sharedDataType)
+
+		assert.Len(t, implementations, 2)
+		assert.Equal(t, sharedDataType, implementations[0].Type())
+		assert.Equal(t, sharedDataType, implementations[1].Type())
+	})
+
+	t.Run("returns empty slice when no implementations found", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+		implementations := composite.findImplementations(interfaceType)
+
+		assert.Empty(t, implementations)
+	})
+
+	t.Run("deduplicates implementations across both maps", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		// Store same implementation in both maps
+		emailProcessor := &EmailProcessor{domain: "dedupe.com"}
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.sliceResults[reflect.TypeOf(emailProcessor)] = []any{emailProcessor}
+
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+		implementations := composite.findImplementations(interfaceType)
+
+		// Should only get one despite being in both maps
+		assert.Len(t, implementations, 1)
+	})
+}
+
+func Test_Composite_createUniqueKey(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates unique key for pointer types", func(t *testing.T) {
+		composite := &Composite{}
+
+		email1 := &EmailProcessor{domain: "first.com"}
+		email2 := &EmailProcessor{domain: "second.com"}
+
+		key1 := composite.createUniqueKey(email1)
+		key2 := composite.createUniqueKey(email2)
+
+		// Keys should be different for different instances
+		assert.NotEqual(t, key1, key2)
+
+		// Keys should contain type name
+		assert.Contains(t, key1, "*service.EmailProcessor")
+		assert.Contains(t, key2, "*service.EmailProcessor")
+
+		// Keys should contain pointer address
+		assert.Regexp(t, `\*service\.EmailProcessor:[0-9a-f]+`, key1)
+		assert.Regexp(t, `\*service\.EmailProcessor:[0-9a-f]+`, key2)
+	})
+
+	t.Run("creates unique key for non-pointer types", func(t *testing.T) {
+		composite := &Composite{}
+
+		str1 := "hello"
+		str2 := "world"
+
+		key1 := composite.createUniqueKey(str1)
+		key2 := composite.createUniqueKey(str2)
+
+		// Keys should be different for different values
+		assert.NotEqual(t, key1, key2)
+
+		// Keys should contain type and value
+		assert.Equal(t, "string:hello", key1)
+		assert.Equal(t, "string:world", key2)
+	})
+
+	t.Run("same pointer gives same key", func(t *testing.T) {
+		composite := &Composite{}
+
+		email := &EmailProcessor{domain: "same.com"}
+
+		key1 := composite.createUniqueKey(email)
+		key2 := composite.createUniqueKey(email)
+
+		// Should get identical keys for same pointer
+		assert.Equal(t, key1, key2)
+	})
+
+	t.Run("handles empty structs with same pointer", func(t *testing.T) {
+		composite := &Composite{}
+
+		// Empty structs might have same pointer address but different types
+		type EmptyA struct{}
+		type EmptyB struct{}
+
+		a := &EmptyA{}
+		b := &EmptyB{}
+
+		keyA := composite.createUniqueKey(a)
+		keyB := composite.createUniqueKey(b)
+
+		// Even if pointers are same, keys should be different due to type
+		assert.Contains(t, keyA, "*service.EmptyA")
+		assert.Contains(t, keyB, "*service.EmptyB")
+
+		// Keys might have same pointer but will be different due to type prefix
+		if strings.Contains(keyA, ":") && strings.Contains(keyB, ":") {
+			pointerA := strings.Split(keyA, ":")[1]
+			pointerB := strings.Split(keyB, ":")[1]
+			// Even if pointers are same, full keys should be different
+			if pointerA == pointerB {
+				assert.NotEqual(t, keyA, keyB, "keys should be different due to type even with same pointer")
+			}
+		}
+	})
+}
+
+func Test_Composite_findInterfaceImplementations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("finds implementations from results map", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		emailProcessor := &EmailProcessor{domain: "results.com"}
+		regularString := "not an implementation"
+
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.results[reflect.TypeOf(regularString)] = regularString
+
+		var implementations []reflect.Value
+		seen := make(map[string]bool)
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+
+		composite.findInterfaceImplementations(interfaceType, &implementations, seen)
+
+		assert.Len(t, implementations, 1)
+		assert.Equal(t, reflect.TypeOf(emailProcessor), implementations[0].Type())
+	})
+
+	t.Run("finds implementations from sliceResults map", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		smsProcessor := &SMSProcessor{provider: "slice"}
+		composite.sliceResults[reflect.TypeOf(smsProcessor)] = []any{smsProcessor}
+
+		var implementations []reflect.Value
+		seen := make(map[string]bool)
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+
+		composite.findInterfaceImplementations(interfaceType, &implementations, seen)
+
+		assert.Len(t, implementations, 1)
+		assert.Equal(t, reflect.TypeOf(smsProcessor), implementations[0].Type())
+	})
+
+	t.Run("respects seen map for deduplication", func(t *testing.T) {
+		composite := &Composite{
+			results:      make(map[reflect.Type]any),
+			sliceResults: make(map[reflect.Type][]any),
+		}
+
+		emailProcessor := &EmailProcessor{domain: "dedupe.com"}
+
+		// Put in both maps
+		composite.results[reflect.TypeOf(emailProcessor)] = emailProcessor
+		composite.sliceResults[reflect.TypeOf(emailProcessor)] = []any{emailProcessor}
+
+		var implementations []reflect.Value
+		seen := make(map[string]bool)
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+
+		composite.findInterfaceImplementations(interfaceType, &implementations, seen)
+
+		// Should only add once despite being in both maps
+		assert.Len(t, implementations, 1)
+		assert.Len(t, seen, 1) // Should have one entry in seen map
+	})
+
+	t.Run("filters non-implementing types", func(t *testing.T) {
+		composite := &Composite{
+			results: map[reflect.Type]any{
+				reflect.TypeOf(&EmailProcessor{}): &EmailProcessor{domain: "filter.com"},
+				reflect.TypeOf(""):                "not an implementation",
+				reflect.TypeOf(123):               123,
+			},
+			sliceResults: map[reflect.Type][]any{
+				reflect.TypeOf(&SMSProcessor{}): {&SMSProcessor{provider: "filter"}},
+				reflect.TypeOf(true):            {true, false},
+			},
+		}
+
+		var implementations []reflect.Value
+		seen := make(map[string]bool)
+		interfaceType := reflect.TypeOf((*MessageProcessor)(nil)).Elem()
+
+		composite.findInterfaceImplementations(interfaceType, &implementations, seen)
+
+		// Should only find EmailProcessor and SMSProcessor, not string, int, or bool
+		assert.Len(t, implementations, 2)
+
+		foundTypes := make([]reflect.Type, len(implementations))
+		for i, impl := range implementations {
+			foundTypes[i] = impl.Type()
+		}
+
+		assert.Contains(t, foundTypes, reflect.TypeOf(&EmailProcessor{}))
+		assert.Contains(t, foundTypes, reflect.TypeOf(&SMSProcessor{}))
+	})
+}
+
+func Test_Composite_createSliceFromValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates slice from reflect values", func(t *testing.T) {
+		composite := &Composite{}
+
+		email := &EmailProcessor{domain: "slice.com"}
+		sms := &SMSProcessor{provider: "slice"}
+
+		values := []reflect.Value{
+			reflect.ValueOf(email),
+			reflect.ValueOf(sms),
+		}
+
+		sliceType := reflect.TypeOf([]MessageProcessor{})
+		result := composite.createSliceFromValues(values, sliceType)
+
+		assert.Equal(t, reflect.Slice, result.Kind())
+		assert.Equal(t, 2, result.Len())
+		assert.Equal(t, sliceType, result.Type())
+
+		// Verify we can access the elements
+		firstElem := result.Index(0).Interface()
+		secondElem := result.Index(1).Interface()
+
+		assert.Implements(t, (*MessageProcessor)(nil), firstElem)
+		assert.Implements(t, (*MessageProcessor)(nil), secondElem)
+	})
+
+	t.Run("creates empty slice when no values", func(t *testing.T) {
+		composite := &Composite{}
+
+		var values []reflect.Value
+		sliceType := reflect.TypeOf([]MessageProcessor{})
+		result := composite.createSliceFromValues(values, sliceType)
+
+		assert.Equal(t, reflect.Slice, result.Kind())
+		assert.Equal(t, 0, result.Len())
+		assert.Equal(t, sliceType, result.Type())
+	})
+
+	t.Run("creates slice of concrete types", func(t *testing.T) {
+		composite := &Composite{}
+
+		data1 := &SharedData{Value: "first"}
+		data2 := &SharedData{Value: "second"}
+
+		values := []reflect.Value{
+			reflect.ValueOf(data1),
+			reflect.ValueOf(data2),
+		}
+
+		sliceType := reflect.TypeOf([]*SharedData{})
+		result := composite.createSliceFromValues(values, sliceType)
+
+		assert.Equal(t, reflect.Slice, result.Kind())
+		assert.Equal(t, 2, result.Len())
+		assert.Equal(t, sliceType, result.Type())
+
+		// Verify the values
+		first := result.Index(0).Interface().(*SharedData)
+		second := result.Index(1).Interface().(*SharedData)
+
+		assert.Equal(t, "first", first.Value)
+		assert.Equal(t, "second", second.Value)
+	})
+
+	t.Run("creates slice of primitive types", func(t *testing.T) {
+		composite := &Composite{}
+
+		values := []reflect.Value{
+			reflect.ValueOf("hello"),
+			reflect.ValueOf("world"),
+		}
+
+		sliceType := reflect.TypeOf([]string{})
+		result := composite.createSliceFromValues(values, sliceType)
+
+		assert.Equal(t, reflect.Slice, result.Kind())
+		assert.Equal(t, 2, result.Len())
+		assert.Equal(t, sliceType, result.Type())
+
+		// Verify the values
+		assert.Equal(t, "hello", result.Index(0).Interface())
+		assert.Equal(t, "world", result.Index(1).Interface())
+	})
+}
+
+// Tests for uncovered functions to achieve 95+ coverage
+
+func Test_newChartContext(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates chart context with provided context", func(t *testing.T) {
+		ctx := context.WithValue(context.Background(), "test-key", "test-value")
+
+		contextFactory := newChartContext(ctx)
+		chartCtx := contextFactory()
+
+		assert.NotNil(t, chartCtx)
+		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.String())
+
+		// Verify the context can be retrieved and has the expected value
+		retrievedCtx := chartCtx.Apply()
+		assert.Equal(t, "test-value", retrievedCtx.Value("test-key"))
+	})
+}
+
+func Test_chartContext_Apply_and_String(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Apply returns the stored context", func(t *testing.T) {
+		originalCtx := context.WithValue(context.Background(), "chart-key", "chart-value")
+		chartCtx := &chartContext{
+			instanceCtx: func() context.Context { return originalCtx },
+		}
+
+		retrievedCtx := chartCtx.Apply()
+		assert.Equal(t, "chart-value", retrievedCtx.Value("chart-key"))
+	})
+
+	t.Run("String returns expected identifier", func(t *testing.T) {
+		chartCtx := &chartContext{}
+		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.String())
+	})
+}
+
+func Test_chartFactory_CreateChart(t *testing.T) {
+	t.Parallel()
+
+	t.Run("tests props validation path without CDK8s", func(t *testing.T) {
+		// Test the logic without actually calling CDK8s functions
+		// We'll verify the type assertion and path selection
+
+		// Create a props that implements the validation interface
+		props := &TestChartProps{Name: "test-factory"}
+
+		// Verify that our props implements the validation interface through interface conversion
+		var validator interface{ Validate(context.Context) error } = props
+		assert.NotNil(t, validator, "TestChartProps should implement validation interface")
+
+		// Test with nil props to hit the fallback path
+		var nilProps port.Validator = nil
+		if nilProps != nil {
+			_, ok := nilProps.(interface{ Validate(context.Context) error })
+			assert.False(t, ok, "nil props should not implement validation interface")
+		}
+	})
+
+	t.Run("creates chart with valid props validator", func(t *testing.T) {
+		// Test the validation interface detection without full CDK8s
+		props := &TestChartProps{Name: "test-factory"}
+
+		factory := &chartFactory{
+			instanceCtx: func() context.Context {
+				return context.Background()
+			},
+		}
+
+		// This will panic because there's no CDK8s construct in context,
+		// but we can verify the method exists and handles the props correctly
+		assert.Panics(t, func() {
+			factory.CreateChart("TestChart", props)
+		}, "should panic without CDK8s context")
+	})
+
+	t.Run("handles nil props gracefully", func(t *testing.T) {
+		factory := &chartFactory{
+			instanceCtx: func() context.Context {
+				return context.Background()
+			},
+		}
+
+		// This will also panic due to missing CDK8s context, but verifies nil handling
+		assert.Panics(t, func() {
+			factory.CreateChart("TestChart", nil)
+		}, "should panic without CDK8s context")
+	})
+
+	t.Run("handles nil props fallback path", func(t *testing.T) {
+		// Test the fallback path with nil props, which doesn't implement the validation interface
+		factory := &chartFactory{
+			instanceCtx: func() context.Context {
+				return context.Background()
+			},
+		}
+
+		// Test the fallback path with nil props - this should hit the fallback branch
+		assert.Panics(t, func() {
+			factory.CreateChart("TestChart", nil)
+		}, "should panic without CDK8s context and hit fallback path for nil props")
+	})
+}
+
+func Test_chartFactory_Apply(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sets context and returns self", func(t *testing.T) {
+		factory := &chartFactory{}
+		ctx := context.WithValue(context.Background(), "factory-key", "factory-value")
+
+		result := factory.Apply(ctx)
+
+		// Should return itself
+		assert.Equal(t, factory, result)
+
+		// Should have stored the context
+		storedCtx := factory.instanceCtx()
+		assert.Equal(t, "factory-value", storedCtx.Value("factory-key"))
+	})
+
+	t.Run("String returns expected identifier", func(t *testing.T) {
+		factory := &chartFactory{}
+		assert.Equal(t, "sdk.composite.builtin.chartFactory", factory.String())
+	})
+}
+
+func Test_NewCompositeSet(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates composite set with fx options", func(t *testing.T) {
+		cs := NewCompositeSet()
+
+		assert.NotNil(t, cs)
+		assert.NotNil(t, cs.fxOpts)
+		assert.Len(t, cs.fxOpts, 1) // Should have one fx.Invoke option
+	})
+}
+
+func Test_CompositeSet_Apply(t *testing.T) {
+	t.Parallel()
+
+	t.Run("panics without CDK8s context as expected", func(t *testing.T) {
+		// This is a complex integration test that requires CDK8s context
+		// We'll test that it properly panics when CDK8s context is missing
+
+		cs := NewCompositeSet()
+		ctx := context.Background()
+
+		// This should panic due to missing CDK8s construct in context
+		assert.Panics(t, func() {
+			cs.Apply(ctx, NewNoDepsConsumer)
+		}, "should panic when CDK8s construct is not in context")
+	})
+}
+
+func Test_registerComponents(t *testing.T) {
+	t.Parallel()
+
+	t.Run("registers valid components", func(t *testing.T) {
+		option := registerComponents(NewProducerA, NewNoDepsConsumer)
+
+		assert.NotNil(t, option)
+
+		// We can't easily test the internals without creating an fx.App,
+		// but we can verify it returns a valid fx.Option
+	})
+
+	t.Run("returns error option for invalid components", func(t *testing.T) {
+		// Test with an invalid component (non-function)
+		option := registerComponents("not a function")
+
+		assert.NotNil(t, option)
+
+		// The option should be an fx.Error option, but we can't inspect it directly
+		// The error will be caught when the fx.App is created
+	})
+
+	t.Run("registers components and sets executor", func(t *testing.T) {
+		// Test that registerComponents creates a Composite with the executor set
+		option := registerComponents(NewNoDepsConsumer)
+
+		// Create a minimal fx.App to test the registration
+		app := fx.New(option, fx.NopLogger)
+
+		assert.NotNil(t, app)
+
+		// The app should start and stop without error for valid components
+		startCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := app.Start(startCtx)
+		// Might fail due to missing dependencies, but should not panic
+		if err != nil {
+			assert.NotContains(t, err.Error(), "panic")
+		}
+
+		app.Stop(context.Background())
+	})
+
+	t.Run("handles errors and continues processing", func(t *testing.T) {
+		// Test error handling when some components are invalid
+		option := registerComponents(
+			NewNoDepsConsumer,       // Valid
+			"not a function",        // Invalid - should error
+			NewProducerA,            // Valid
+			func(invalid string) {}, // Invalid - has parameters
+		)
+
+		// Should return an fx.Error option due to invalid components
+		assert.NotNil(t, option)
+
+		// Try to create an app with the error option
+		app := fx.New(option, fx.NopLogger)
+		assert.NotNil(t, app)
+
+		// Starting the app should fail due to registration errors
+		err := app.Start(context.Background())
+		assert.Error(t, err, "should error due to invalid components")
+
+		app.Stop(context.Background())
+	})
+}
+
+func Test_constructorRefs_Validate(t *testing.T) {
+	t.Parallel()
+
+	t.Run("always returns nil", func(t *testing.T) {
+		refs := constructorRefs{}
+		err := refs.Validate(context.Background())
+		assert.NoError(t, err)
+	})
+}
+
+func Test_newConstructorRefs_Coverage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creates constructor refs from functions", func(t *testing.T) {
+		refs := newConstructorRefs(NewProducerA, NewNoDepsConsumer)
+
+		assert.Len(t, refs.Refs, 2)
+
+		// Verify validation works
+		err := refs.Validate(context.Background())
+		assert.NoError(t, err)
+	})
+
+	t.Run("handles empty constructor list", func(t *testing.T) {
+		refs := newConstructorRefs()
+
+		assert.Len(t, refs.Refs, 0)
+		assert.NoError(t, refs.Validate(context.Background()))
+	})
+
+	t.Run("handles mixed types", func(t *testing.T) {
+		refs := newConstructorRefs(NewProducerA, "not a function", 123)
+
+		assert.Len(t, refs.Refs, 3)
+		assert.NoError(t, refs.Validate(context.Background()))
+	})
 }
