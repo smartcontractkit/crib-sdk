@@ -4,17 +4,47 @@
 
 version: '3'
 
+vars:
+  HELM_PLUGIN_SECRETS_VERSION: 4.6.5
+
 tasks:
   tools:
     run: once
-    desc: Use asdf to install the tools defined in .tool-versions.
+    desc: Use asdf to install the tools defined in .tool-versions and Helm plugins.
     cmds:
       - awk '{print $1}' .tool-versions | xargs -P 8 -I _ asdf plugin add _
       - awk '{print $1, $2}' .tool-versions | xargs -P 8 -n 2 asdf install $1 $2
       - awk '{print $1, $2}' .tool-versions | xargs -n 2 asdf set $1 $2
+      - task: helm-plugins
     preconditions:
       - sh: command -v asdf > /dev/null
         msg: "asdf is not installed. Please install asdf and try again."
+
+  helm-plugins:
+    run: once
+    desc: Install Helm plugins
+    cmds:
+      - |
+        # Install Helm secrets plugin {{.HELM_PLUGIN_SECRETS_VERSION}}
+        # Uninstall if secrets plugin exists but is not version {{.HELM_PLUGIN_SECRETS_VERSION}}
+        if helm plugin list | grep -q "^secrets" && ! helm plugin list | grep -q "^secrets.*{{.HELM_PLUGIN_SECRETS_VERSION}}"; then
+          helm plugin uninstall secrets
+          rm -rf ~/Library/Caches/helm/plugins/https-github.com-jkroepke-helm-secrets ~/Library/helm/plugins/helm-secrets || true
+        fi
+
+        # Install {{.HELM_PLUGIN_SECRETS_VERSION}} if not already installed
+        if ! helm plugin list | grep -q "^secrets.*{{.HELM_PLUGIN_SECRETS_VERSION}}"; then
+          # Clean potential corrupted cache files
+          rm -rf ~/Library/Caches/helm/plugins/https-github.com-jkroepke-helm-secrets ~/Library/helm/plugins/helm-secrets || true
+          git config --global core.fsmonitor false
+
+          helm plugin install https://github.com/jkroepke/helm-secrets --version v{{.HELM_PLUGIN_SECRETS_VERSION}}
+
+          git config --global core.fsmonitor true
+        fi
+    preconditions:
+      - sh: command -v helm > /dev/null
+        msg: "helm is not installed. Please run task install:tools first."
 
   pre-commit:
     desc: Install pre-commit hooks.
