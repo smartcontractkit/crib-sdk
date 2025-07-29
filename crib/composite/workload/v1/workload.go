@@ -218,6 +218,13 @@ func ConvertVolumeClaimTemplates(w WorkloadResource, pvcs []*domain.PersistentVo
 		if err != nil {
 			return nil, dry.Wrapf(err, "failed to create default metadata")
 		}
+
+		// Use configurable storage class or default to "gp3"
+		storageClass := pvc.StorageClass
+		if storageClass == "" {
+			storageClass = "gp3"
+		}
+
 		k8sPvcs[i] = &k8s.KubePersistentVolumeClaimProps{
 			Metadata: factory.K8sResourceMetadata(),
 			Spec: &k8s.PersistentVolumeClaimSpec{
@@ -227,7 +234,7 @@ func ConvertVolumeClaimTemplates(w WorkloadResource, pvcs []*domain.PersistentVo
 						"storage": k8s.Quantity_FromString(&pvc.Capacity),
 					},
 				},
-				StorageClassName: dry.ToPtr("gp3"),
+				StorageClassName: dry.ToPtr(storageClass),
 			},
 		}
 	}

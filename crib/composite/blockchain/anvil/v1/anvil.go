@@ -41,7 +41,9 @@ type (
 
 	// PersistenceProps contains the configuration for persistence.
 	PersistenceProps struct {
-		enabled bool
+		enabled      bool
+		storageSize  string
+		storageClass string
 	}
 
 	PropOpt func(p *Props)
@@ -64,6 +66,17 @@ func UseIngress(p *Props) {
 // Enabling persistence can only work in cloud as kind doesn't provide persistence.
 func UsePersistence(p *Props) {
 	p.persistence.enabled = true
+	p.persistence.storageSize = "2Gi"
+	p.persistence.storageClass = "gp3"
+}
+
+// UsePersistenceWithConfig enables persistence with custom configuration for anvil instance.
+func UsePersistenceWithConfig(storageSize, storageClass string) PropOpt {
+	return func(p *Props) {
+		p.persistence.enabled = true
+		p.persistence.storageSize = storageSize
+		p.persistence.storageClass = storageClass
+	}
 }
 
 // Validate validates the props. This is a no-op for this component.
@@ -79,6 +92,16 @@ func (r *Result) RPCWebsocketURL() string {
 // RPCHTTPURL returns cluster local http URL.
 func (r *Result) RPCHTTPURL() string {
 	return domain.ClusterLocalServiceURL("http", r.appInstanceName, r.namespace, servicePort)
+}
+
+// Namespace returns the namespace where the anvil instance is deployed.
+func (r *Result) Namespace() string {
+	return r.namespace
+}
+
+// AppInstanceName returns the application instance name.
+func (r *Result) AppInstanceName() string {
+	return r.appInstanceName
 }
 
 // Component returns a new Anvil composite component.
@@ -104,13 +127,15 @@ func blockchain(ctx context.Context, props crib.Props) (crib.Component, error) {
 
 	anvilProps := dry.MustAs[*Props](props)
 
-	commandArgs := `if [ ! -f ${ANVIL_STATE_PATH} ]; then
-  echo "No state found, creating new state"
-  anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH}
-else
-  echo "State found, loading state"
-  anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH} --load-state ${ANVIL_STATE_PATH}
-fi`
+	commandArgs := dry.RemoveIndentation(`
+		if [ ! -f ${ANVIL_STATE_PATH} ]; then
+			echo "No state found, creating new state"
+			anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --dump-state ${ANVIL_STATE_PATH}
+		else
+			echo "State found, loading state"
+			anvil --host ${ANVIL_HOST} --port ${ANVIL_PORT} --chain-id ${ANVIL_CHAIN_ID} --block-time ${ANVIL_BLOCK_TIME} --load-state ${ANVIL_STATE_PATH}
+		fi
+	`)
 
 	envVars := []domain.EnvVar{
 		{Name: "ANVIL_CHAIN_ID", Value: anvilProps.ChainID},
@@ -142,6 +167,17 @@ fi`
 		GroupID: 1000,
 	}
 
+	// Add volume mount for persistence when enabled
+	if anvilProps.persistence.enabled {
+		containerProps.VolumeMounts = []domain.VolumeMount{
+			{
+				Name:      fmt.Sprintf("anvil-%s-data", anvilProps.ChainID),
+				MountPath: "/data",
+				ReadOnly:  false,
+			},
+		}
+	}
+
 	appInstanceName := fmt.Sprintf("anvil-%s", anvilProps.ChainID)
 	k8sResourceName := appInstanceName
 	appName := "anvil"
@@ -156,12 +192,19 @@ fi`
 			Containers: []*domain.Container{
 				containerProps,
 			},
+			VolumeClaimTemplates: []*domain.PersistentVolumeClaim{
+				{
+					NameSuffix:   "data",
+					Capacity:     anvilProps.persistence.storageSize,
+					StorageClass: anvilProps.persistence.storageClass,
+				},
+			},
 		}
 		component, err := statefulsetv1.Component(stsProps)(ctx)
 		if err != nil {
 			return nil, dry.Wrapf(err, "error creating anvil statefulset component")
 		}
-		stsComposite := dry.MustAs[*statefulsetv1.StatefulSetComposite](component) // Fixing incorrect type cast
+		stsComposite := dry.MustAs[*statefulsetv1.StatefulSetComposite](component)
 		workloadComposite = stsComposite
 	} else {
 		deploymentProps := &deploymentv1.Props{
