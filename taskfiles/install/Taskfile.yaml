@@ -25,9 +25,9 @@ tasks:
     desc: Install Helm plugins
     cmds:
       - |
-        # Install Helm secrets plugin {{.HELM_PLUGIN_SECRETS_VERSION}}
-        # Uninstall if secrets plugin exists but is not version {{.HELM_PLUGIN_SECRETS_VERSION}}
-        if helm plugin list | grep -q "^secrets" && ! helm plugin list | grep -q "^secrets.*{{.HELM_PLUGIN_SECRETS_VERSION}}"; then
+        # Install Helm secrets plugin {{ .HELM_PLUGIN_SECRETS_VERSION }}
+        # Uninstall if secrets plugin exists but is not version {{ .HELM_PLUGIN_SECRETS_VERSION }}
+        if helm plugin list | grep -q "^secrets" && ! helm plugin list | grep -q "^secrets.*{{ .HELM_PLUGIN_SECRETS_VERSION }}"; then
           helm plugin uninstall secrets
           rm -rf ~/Library/Caches/helm/plugins/https-github.com-jkroepke-helm-secrets ~/Library/helm/plugins/helm-secrets || true
         fi
