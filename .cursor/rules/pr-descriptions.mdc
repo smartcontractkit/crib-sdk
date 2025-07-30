@@ -1,0 +1,91 @@
+---
+description: Generate useful PR descriptions
+alwaysApply: false
+---
+
+# PR Descriptions
+
+## Authoring
+
+Write a clear, structured pull request description for the CRIB SDK project. Base it on the following rules:
+
+1. "Title: Follow conventional commits (`<type>[optional scope]: <summary>`). If multiple commits are included, use the dominant commit type or `chore:` for mixed commits. Keep under 50 characters, imperative mood, no trailing period.
+
+2. "Summary: 1–3 sentences explaining what this PR does and why, in plain language. Mention the affected component/scope."
+
+3. "Details:"
+
+   - Describe key changes, organized in bullet points
+
+   - Note motivation or problem being solved
+
+   - Specify behavior changes or new features
+
+   - Mention breaking changes explicitly (BREAKING CHANGE:)
+
+   - List relevant tests added/updated
+
+4. "References: link to related issues, tickets, or discussions (Closes #123, Refs #456)."
+
+5. "Validation: describe how changes were tested and validated (unit tests, integration tests, lint checks)."
+
+6. "Automation context (if applicable): note if this PR was generated or modified by an automated agent, with a pointer to the source request or context."
+
+7. "Checklist: include a short checklist for reviewers:"
+
+```markdown
+   - [ ] Code follows formatting and linting rules
+   - [ ] Tests pass locally and in CI
+   - [ ] Documentation updated if needed
+   - [ ] Commits follow guidelines
+```
+
+Style: concise, imperative, factual. Avoid vague phrases like "misc fixes" or "update stuff". Make the PR description self-contained so reviewers understand scope and reasoning without reading commits one by one.
+
+## Tooling
+
+If available, use the `gh` and `git` MCPs to generate PR descriptions. Compare the commit history against the current HEAD at `main` to determine the most recent commit that is not a merge commit. Use the `git log` command to get the commit message of the most recent commit that is not a merge commit.
+
+## Example
+
+```markdown
+
+This PR exports internal APIs and adds testing utilities to make the crib-sdk more accessible for external consumers. The changes include new public APIs for chart management, context handling, testing utilities, and value manipulation.
+
+## Changes
+
+### New Public APIs
+
+- **Chart Management**: Added `ChartRef`, `Chart`, and `NewChartRef` types and functions for chart reference handling
+- **Context Utilities**: Exported context-related functions for construct and validator management:
+  - `ConstructFromContext()` - retrieves constructs.Construct from context
+  - `ContextWithConstruct()` - creates context with construct value
+  - `ValidatorFromContext()` - retrieves or creates validator from context
+  - `ContextWithValidator()` - creates context with validator value
+- **Testing Utilities**: Added testing support with:
+  - `JSIIKernelMutex` - global mutex for JSII kernel synchronization in parallel tests
+  - `TestApp` type - exposes cdk8s.App and cdk8s.Chart for unit tests
+  - `NewHelmValuesLoader()` - helper for loading Helm chart values
+  - `NewTestApp()` - creates test Chart scope for unit tests
+- **Value Manipulation**: Added `SetValueAtPath()` utility for setting nested values in map structures with dot notation and array indexing support
+
+### Files Added
+
+- `crib/chart.go` - Chart reference and metadata types
+- `crib/context.go` - Context utilities for construct and validator management
+- `crib/testing.go` - Testing utilities and JSII kernel synchronization
+- `crib/utils.go` - Value manipulation utilities
+
+### Code Quality
+
+- Applied linting fixes to ensure code quality standards
+- All new APIs are properly documented with clear usage examples
+
+## Testing
+
+The new APIs include comprehensive testing utilities that enable better unit testing of crib-sdk consumers, particularly for parallel test execution scenarios involving JSII kernel operations.
+
+## Breaking Changes
+
+None - this is purely additive functionality that exports existing internal APIs.
+```
