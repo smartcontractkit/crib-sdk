@@ -32,13 +32,13 @@ tasks:
           rm -rf ~/Library/Caches/helm/plugins/https-github.com-jkroepke-helm-secrets ~/Library/helm/plugins/helm-secrets || true
         fi
 
-        # Install {{.HELM_PLUGIN_SECRETS_VERSION}} if not already installed
-        if ! helm plugin list | grep -q "^secrets.*{{.HELM_PLUGIN_SECRETS_VERSION}}"; then
+        # Install {{ .HELM_PLUGIN_SECRETS_VERSION }} if not already installed
+        if ! helm plugin list | grep -q "^secrets.*{{ .HELM_PLUGIN_SECRETS_VERSION }}"; then
           # Clean potential corrupted cache files
           rm -rf ~/Library/Caches/helm/plugins/https-github.com-jkroepke-helm-secrets ~/Library/helm/plugins/helm-secrets || true
           git config --global core.fsmonitor false
 
-          helm plugin install https://github.com/jkroepke/helm-secrets --version v{{.HELM_PLUGIN_SECRETS_VERSION}}
+          helm plugin install https://github.com/jkroepke/helm-secrets --version v{{ .HELM_PLUGIN_SECRETS_VERSION }}
 
           git config --global core.fsmonitor true
         fi
