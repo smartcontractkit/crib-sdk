@@ -62,12 +62,10 @@ jobs:
           if [[ "$COMMIT_MSG" =~ $CONVENTIONAL_PATTERN ]]; then
             {
               echo "is_valid=true"
-              echo "commit_msg=$COMMIT_MSG"
             } >> "$GITHUB_OUTPUT"
           else
             {
               echo "is_valid=false"
-              echo "commit_msg=$COMMIT_MSG"
             } >> "$GITHUB_OUTPUT"
           fi
 
