@@ -8,7 +8,7 @@ require (
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
 	github.com/aws/jsii-runtime-go v1.112.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.3
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8
 	github.com/charmbracelet/huh v0.7.0
 	github.com/creasty/defaults v1.8.0
