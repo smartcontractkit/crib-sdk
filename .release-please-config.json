@@ -3,6 +3,7 @@
   "packages": {
     ".": {
       "package-name": "crib-sdk",
+      "changelog-type": "github",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
       "changelog-sections": [
