@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 (2025-07-30)
+
+## What's Changed
+* ci: Add method for checking conventional commit status by @polds in https://github.com/smartcontractkit/crib-sdk/pull/16
+* build(deps): bump github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 from 2.70.2 to 2.70.3 by @dependabot[bot] in https://github.com/smartcontractkit/crib-sdk/pull/21
+* Add task to install Helm secrets plugin by @njegosrailic in https://github.com/smartcontractkit/crib-sdk/pull/20
+* feat(composite): implement Composite API with automatic dependency resolution by @polds in https://github.com/smartcontractkit/crib-sdk/pull/23
+* fix: Don’t provide commit_msg to GITHUB_OUTPUT by @polds in https://github.com/smartcontractkit/crib-sdk/pull/25
+* feat: use GitHub’s API to generate release notes by @polds in https://github.com/smartcontractkit/crib-sdk/pull/26
+
+## New Contributors
+* @njegosrailic made their first contribution in https://github.com/smartcontractkit/crib-sdk/pull/20
+
+**Full Changelog**: https://github.com/smartcontractkit/crib-sdk/compare/v0.4.0...v0.5.0
+
 ## [0.4.0](https://github.com/smartcontractkit/crib-sdk/compare/v0.3.0...v0.4.0) (2025-07-22)
 
 
