@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 
-	kind "github.com/smartcontractkit/crib-sdk/crib/scalar/bootstrap/kind/v1"
 	"github.com/smartcontractkit/crib-sdk/internal"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
+
+	kind "github.com/smartcontractkit/crib-sdk/crib/scalar/bootstrap/kind/v1"
 )
 
 // This file demonstrates utilizing a v1 Scalar component as a producer.

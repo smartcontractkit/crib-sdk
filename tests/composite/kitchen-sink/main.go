@@ -4,12 +4,28 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/samber/lo"
+
 	"github.com/smartcontractkit/crib-sdk/crib"
-	configmap "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/configmap/v1"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
 	"github.com/smartcontractkit/crib-sdk/internal/core/domain"
+
+	configmap "github.com/smartcontractkit/crib-sdk/crib/scalar/k8s/configmap/v1"
+)
+
+// Composite shows how to utilize the Composite API to share state among Scalar Components.
+// It includes a variety of components that demonstrate the capabilities of the Composite API.
+var composite = crib.NewComposite(
+	// Producers
+	NewDockerRegistry("5000"),
+	NewDockerRegistry("5001"),
+	NewKindCluster,
+
+	// Consumers
+	NewConfigMapper,
 )
 
 type (
@@ -21,23 +37,11 @@ type (
 	// If a Scalar component implements this interface, it will automatically be available
 	// to the Composite context as a slice of the interface.
 	HostnamePrinter interface {
+		// Host returns the hostname of the component.
 		Host() string
+		// Port returns the port of the component.
 		Port() string
 	}
-)
-
-// Composite shows how to utilize the Composite API to share state among Scalar Components.
-// It includes a variety of components that demonstrate the capabilities of the Composite API.
-var composite = crib.NewComposite(
-	// Producers
-	NewDockerRegistry("5000"), // Deploy a docker registry
-	NewDockerRegistry("5001"), // Deploy a docker registry
-	NewDockerRegistry("5002"), // Deploy a docker registry
-
-	NewKindCluster, // Deploy a local kind cluster
-
-	// Consumers
-	NewConfigMapper, // Deploy a config map
 )
 
 func main() {
@@ -49,7 +53,10 @@ func main() {
 	)
 
 	// Apply the plan.
-	plan.Apply(ctx)
+	_, err := plan.Apply(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error applying plan: %v\n", err)
+	}
 }
 
 // NewConfigMapper is a helper Component. It consumes the available HostnamePrinters within the
@@ -73,6 +80,7 @@ func (h *ConfigMapper) Apply(ctx context.Context, entries []HostnamePrinter) (cr
 	return component(ctx)
 }
 
+//nolint:decorder // Simple check to ensure that DockerResults and KindResults implement HostnamePrinter.
 var (
 	_ HostnamePrinter = (*DockerResults)(nil)
 	_ HostnamePrinter = (*KindResults)(nil)

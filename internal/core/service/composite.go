@@ -20,6 +20,20 @@ import (
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
 
+var (
+	// stringerType is a sync.OnceValue that lazily initializes the reflect.Type for fmt.Stringer interface and stores
+	// it for future use. This is used to avoid repeated calls to reflect.TypeOf, which can be expensive.
+	stringerType = sync.OnceValue(func() reflect.Type {
+		return reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+	})
+
+	// voidValue is a sync.OnceValue that lazily initializes the reflect.Value for an empty struct.
+	// This is used to avoid repeated calls to reflect.ValueOf, which can be expensive.
+	voidValue = sync.OnceValue(func() reflect.Value {
+		return reflect.ValueOf(struct{}{})
+	})
+)
+
 type (
 	AutoComponent struct {
 		component   any
@@ -32,7 +46,9 @@ type (
 
 	// ComponentExecutor defines the interface for executing individual components.
 	ComponentExecutor interface {
-		ExecuteComponent(comp AutoComponent) error
+		// ExecuteComponent executes a single AutoComponent and handles its dependencies.
+		// It is responsible for providing the necessary parameters to the component's Apply method.
+		ExecuteComponent(comp *AutoComponent) error
 	}
 
 	// Composite represents a set of Scalar Components that are executed in a dependency graph.
@@ -45,10 +61,9 @@ type (
 		mu           sync.RWMutex
 	}
 
-	// CompositeSet contains an fx.App and is used by a Plan to execute a Composite.
+	// CompositeSet contains fx Options and is used by a Plan to execute a Composite.
 	CompositeSet struct {
-		depGraph *fx.App
-		fxOpts   []fx.Option
+		fxOpts []fx.Option
 	}
 
 	// chartContext is a composite builtin that injects a method to fetch a context.Context that is used to create a cdk8s.Chart instance.
@@ -72,6 +87,7 @@ type (
 	//   parent := internal.ConstructFromContext(ctx)
 	//   chart := cdk8s.NewChart(parent, crib.ResourceID("MyComponent", props), nil)
 	ChartFactory interface {
+		// CreateChart creates a new cdk8s.Chart instance with the given resource name and props.
 		CreateChart(resourceName string, props port.Validator) cdk8s.Chart
 	}
 
@@ -163,7 +179,6 @@ func NewCompositeSet() *CompositeSet {
 
 func (c *CompositeSet) Apply(ctx context.Context, ctors ...any) (port.Component, error) {
 	id := infra.ResourceID("sdk.composite", newConstructorRefs(ctors...))
-	fmt.Println("Applying CompositeSet with ID:", *id)
 	parent := internal.ConstructFromContext(ctx)
 	chart := cdk8s.NewChart(parent, id, nil)
 	ctx = internal.ContextWithConstruct(ctx, chart)
@@ -269,7 +284,8 @@ func analyzeConstructor(ctor any) (AutoComponent, error) {
 	if methodType.NumOut() > 0 {
 		returnType := methodType.Out(0)
 		auto.produces = returnType
-		fmt.Printf("Auto-detected: %s produces %s\n", name, returnType)
+		// TODO(COP-1232): Use a logger.
+		// fmt.Printf("Auto-detected: %s produces %s\n", name, returnType)
 	}
 
 	// Analyze what the Apply method consumes (parameters beyond receiver, ie. skip index 0)
@@ -280,27 +296,16 @@ func analyzeConstructor(ctor any) (AutoComponent, error) {
 		// Check if it's a slice type (for collecting multiple instances)
 		if paramType.Kind() == reflect.Slice {
 			auto.isSliceType = true
-			elemType := paramType.Elem()
-			fmt.Printf("Auto-detected: %s consumes slice of %s\n", name, elemType)
-		} else {
-			fmt.Printf("Auto-detected: %s consumes %s\n", name, paramType)
+			// TODO(COP-1232): Use a logger.
+			// elemType := paramType.Elem()
+			//	fmt.Printf("Auto-detected: %s consumes slice of %s\n", name, elemType)
+			//	} else {
+			//	fmt.Printf("Auto-detected: %s consumes %s\n", name, paramType)
 		}
 	}
 
 	return auto, nil
 }
-
-// stringerType is a sync.OnceValue that lazily initializes the reflect.Type for fmt.Stringer interface and stores
-// it for future use. This is used to avoid repeated calls to reflect.TypeOf, which can be expensive.
-var stringerType = sync.OnceValue(func() reflect.Type {
-	return reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
-})
-
-// voidValue is a sync.OnceValue that lazily initializes the reflect.Value for an empty struct.
-// This is used to avoid repeated calls to reflect.ValueOf, which can be expensive.
-var voidValue = sync.OnceValue(func() reflect.Value {
-	return reflect.ValueOf(struct{}{})
-})
 
 // componentName attempts to derive a human-readable name for the component. If the component type implements
 // the fmt.Stringer interface, it calls the String() method to get a name. Otherwise, it uses the function name
@@ -336,24 +341,27 @@ func (c *Composite) dependencyGraph() (map[string][]string, error) {
 	edges := make(map[string][]string)
 
 	// Initialize edges
-	for _, comp := range c.components {
-		edges[comp.name] = []string{}
+	for i := range c.components {
+		edges[c.components[i].name] = []string{}
 	}
 
 	// Build dependency edges and validate single vs multiple producer scenarios
-	for _, consumer := range c.components {
+	for i := range c.components {
+		consumer := c.components[i] // Capture range variable
 		for _, needsType := range consumer.consumes {
 			// Handle slice types - need all producers of element type
 			if needsType.Kind() == reflect.Slice {
 				elemType := needsType.Elem()
-				for _, producer := range c.components {
+				for i := range c.components {
+					producer := c.components[i] // Capture range variable
 					if producer.name == consumer.name {
 						continue
 					}
 					if producer.produces == elemType {
 						edges[consumer.name] = append(edges[consumer.name], producer.name)
-						fmt.Printf("Dependency: %s needs []%s (collects from %s)\n",
-							consumer.name, elemType, producer.name)
+						// TODO(COP-1232): Use a logger.
+						// fmt.Printf("Dependency: %s needs []%s (collects from %s)\n",
+						//	consumer.name, elemType, producer.name)
 					}
 				}
 				continue
@@ -361,7 +369,8 @@ func (c *Composite) dependencyGraph() (map[string][]string, error) {
 
 			// Handle regular types - but first check for multiple producers
 			var matchingProducers []string
-			for _, producer := range c.components {
+			for i := range c.components {
+				producer := c.components[i] // Capture range variable
 				if producer.name == consumer.name {
 					continue
 				}
@@ -380,11 +389,12 @@ func (c *Composite) dependencyGraph() (map[string][]string, error) {
 					consumer.name, needsType, matchingProducers, consumer.name, needsType)
 			}
 
+			// TODO(COP-1232): Use a logger.
 			// Log the dependency if we have exactly one producer
-			if len(matchingProducers) == 1 {
-				fmt.Printf("Dependency: %s needs %s (from %s)\n",
-					consumer.name, needsType, matchingProducers[0])
-			}
+			// if len(matchingProducers) == 1 {
+			//	fmt.Printf("Dependency: %s needs %s (from %s)\n",
+			//	consumer.name, needsType, matchingProducers[0])
+			// }
 		}
 	}
 
@@ -397,7 +407,8 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 	visiting := make(map[string]bool)
 	componentMap := make(map[string]AutoComponent)
 
-	for _, comp := range c.components {
+	for i := range c.components {
+		comp := c.components[i] // Capture range variable
 		componentMap[comp.name] = comp
 	}
 
@@ -423,8 +434,9 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 
 		// Only execute if component exists in our component map
 		if comp, exists := componentMap[name]; exists {
-			fmt.Printf("Executing: %s\n", name)
-			if err := c.executor.ExecuteComponent(comp); err != nil {
+			// TODO(COP-1232): Use a logger.
+			// fmt.Printf("Executing: %s\n", name)
+			if err := c.executor.ExecuteComponent(&comp); err != nil {
 				return err
 			}
 		}
@@ -434,7 +446,8 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 	}
 
 	// Execute all components
-	for _, comp := range c.components {
+	for i := range c.components {
+		comp := c.components[i] // Capture range variable
 		if !executed[comp.name] {
 			if err := visit(comp.name); err != nil {
 				return err
@@ -447,7 +460,7 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 
 // ExecuteComponent implements the ComponentExecutor interface and is the default implementation to
 // execute components.
-func (c *Composite) ExecuteComponent(comp AutoComponent) error {
+func (c *Composite) ExecuteComponent(comp *AutoComponent) error {
 	// Prepare arguments for Run method
 	methodType := comp.runMethod.Type
 	args := []reflect.Value{reflect.ValueOf(comp.component)} // receiver
@@ -492,7 +505,8 @@ func (c *Composite) ExecuteComponent(comp AutoComponent) error {
 		c.sliceResults[comp.produces] = append(c.sliceResults[comp.produces], result)
 		c.mu.Unlock()
 
-		fmt.Printf("  -> Stored %s for future consumption\n", comp.produces)
+		// TODO(COP-1232): Use a logger.
+		// fmt.Printf("  -> Stored %s for future consumption\n", comp.produces)
 	}
 
 	return nil
@@ -538,24 +552,24 @@ func (c *Composite) findImplementations(targetType reflect.Type) []reflect.Value
 	if targetType.Kind() == reflect.Interface {
 		// For interface types, search both maps for implementations
 		c.findInterfaceImplementations(targetType, &implementations, seen)
-	} else {
-		// For concrete types, get instances from sliceResults
-		if instances, exists := c.sliceResults[targetType]; exists {
-			for _, instance := range instances {
-				val := reflect.ValueOf(instance)
-				key := c.createUniqueKey(instance)
-				if !seen[key] {
-					implementations = append(implementations, val)
-					seen[key] = true
-				}
+		return implementations
+	}
+
+	// For concrete types, get instances from sliceResults
+	if instances, exists := c.sliceResults[targetType]; exists {
+		for _, instance := range instances {
+			val := reflect.ValueOf(instance)
+			key := c.createUniqueKey(instance)
+			if !seen[key] {
+				implementations = append(implementations, val)
+				seen[key] = true
 			}
 		}
 	}
-
 	return implementations
 }
 
-// findInterfaceImplementations searches both results and sliceResults for interface implementations
+// findInterfaceImplementations searches both results and sliceResults for interface implementations.
 func (c *Composite) findInterfaceImplementations(targetType reflect.Type, implementations *[]reflect.Value, seen map[string]bool) {
 	// Search main results map
 	for _, resultValue := range c.results {
@@ -584,7 +598,7 @@ func (c *Composite) findInterfaceImplementations(targetType reflect.Type, implem
 	}
 }
 
-// createUniqueKey generates a unique key for deduplication based on type and pointer/value
+// createUniqueKey generates a unique key for deduplication based on type and pointer/value.
 func (c *Composite) createUniqueKey(value any) string {
 	val := reflect.ValueOf(value)
 	if val.Kind() == reflect.Ptr {
@@ -593,7 +607,7 @@ func (c *Composite) createUniqueKey(value any) string {
 	return fmt.Sprintf("%s:%v", reflect.TypeOf(value), value)
 }
 
-// createSliceFromValues creates a slice of the specified type from the given values
+// createSliceFromValues creates a slice of the specified type from the given values.
 func (c *Composite) createSliceFromValues(values []reflect.Value, sliceType reflect.Type) reflect.Value {
 	sliceValue := reflect.MakeSlice(sliceType, len(values), len(values))
 	for i, val := range values {
