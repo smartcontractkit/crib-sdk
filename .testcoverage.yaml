@@ -49,6 +49,7 @@ exclude:
     - ^internal/values_loaders.go # exclude specific file internal/values_loaders.go
     - ^.*_gen.go$ # exclude all files ending with _gen.go
     - ^internal/adapter/helm # Temporary
+    - ^tests/composite/.* # Sample application that is not part of the main project
 
 # Exclude files or packages matching their paths
 #  paths:
