@@ -61,3 +61,21 @@ spec:
             runAsGroup: 1000
             runAsNonRoot: true
             runAsUser: 1000
+          volumeMounts:
+            - mountPath: /data
+              name: data
+              readOnly: false
+  volumeClaimTemplates:
+    - metadata:
+        labels:
+          app.kubernetes.io/instance: anvil-1234
+          app.kubernetes.io/name: anvil
+        name: anvil-1234-data
+        namespace: foo-bar-baz
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+        storageClassName: gp3

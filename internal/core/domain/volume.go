@@ -15,8 +15,9 @@ type Volume struct {
 
 // PersistentVolumeClaim represents a persistent volume claim template.
 type PersistentVolumeClaim struct {
-	Capacity   string `validate:"required"`
-	NameSuffix string `validate:"required"`
+	Capacity     string `validate:"required"`
+	NameSuffix   string `validate:"required"`
+	StorageClass string // Optional: storage class name, defaults to "gp3" if empty
 }
 
 // ConvertVolumes converts the Volume slice to k8s.Volume slice.

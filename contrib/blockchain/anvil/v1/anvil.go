@@ -17,7 +17,7 @@ func Plan() *crib.Plan {
 			anvilv1.Component(&anvilv1.Props{
 				Namespace: namespace,
 				ChainID:   "1337",
-			}),
+			}, anvilv1.UsePersistenceWithConfig("1Gi", "standard")),
 			anvilv1.Component(&anvilv1.Props{
 				Namespace: namespace,
 				ChainID:   "2337",
