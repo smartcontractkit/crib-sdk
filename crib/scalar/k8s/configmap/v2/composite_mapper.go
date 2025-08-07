@@ -1,40 +1,22 @@
-// Package configmapv2 provides a Kubernetes ConfigMap component for Crib SDK.
 package configmapv2
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/crib-sdk/internal/core/service"
 	"maps"
 	"slices"
 
-	"github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2/k8s"
 	"github.com/imdario/mergo"
 	"github.com/samber/lo"
-
-	"github.com/smartcontractkit/crib-sdk/internal"
-	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
-	"github.com/smartcontractkit/crib-sdk/internal/core/port"
-	"github.com/smartcontractkit/crib-sdk/internal/core/service"
 )
 
 type (
+	// IConfigMap is an interface that should be implemented by any Scalar that provides a ConfigMap config.
 	IConfigMap interface {
+		// ConfigMap returns a Component that represents the ConfigMap to be applied.
 		ConfigMap() *Component
-	}
-
-	Component struct {
-		Name      string `validate:"required"`
-		Namespace string `validate:"required"`
-
-		Data        map[string]string
-		AppName     string `validate:"required"`
-		AppInstance string `validate:"required"`
-	}
-
-	identifier struct {
-		Name      string
-		Namespace string
 	}
 
 	// ComponentMapper is a type that allows Composites to iterate over a set of exposed Configs.
@@ -42,98 +24,11 @@ type (
 		opts []ConfigMapOpt
 	}
 
-	ConfigMapOpt func(*Component) error
+	identifier struct {
+		Name      string
+		Namespace string
+	}
 )
-
-// WithComponentOverride is a ConfigMapOpt that merges the existing Component with the provided one.
-func WithComponentOverride(component *Component) ConfigMapOpt {
-	return func(c *Component) error {
-		return mergo.Merge(c, component, mergo.WithOverride)
-	}
-}
-
-// WithName is a ConfigMapOpt that sets the name of the ConfigMap component.
-func WithName(name string) ConfigMapOpt {
-	return func(c *Component) error {
-		if name == "" {
-			return errors.New("name cannot be empty")
-		}
-		c.Name = name
-		return nil
-	}
-}
-
-// WithNamespace is a ConfigMapOpt that sets the namespace of the ConfigMap component.
-func WithNamespace(namespace string) ConfigMapOpt {
-	return func(c *Component) error {
-		if namespace == "" {
-			return errors.New("namespace cannot be empty")
-		}
-		c.Namespace = namespace
-		return nil
-	}
-}
-
-// WithData is a ConfigMapOpt that merges the data of the ConfigMap component.
-func WithData(data map[string]string) ConfigMapOpt {
-	return func(c *Component) error {
-		if data == nil {
-			return errors.New("data cannot be nil")
-		}
-		currentLength := len(c.Data)
-		err := mergo.Map(&c.Data, data, mergo.WithOverride)
-		if err != nil {
-			return fmt.Errorf("merging data into ConfigMap failed: %w", err)
-		}
-		if len(c.Data) != currentLength+len(data) {
-			return fmt.Errorf("merging data into ConfigMap failed: %w", err)
-		}
-		return nil
-	}
-}
-
-// WithAppName is a ConfigMapOpt that sets the application name of the ConfigMap component.
-func WithAppName(appName string) ConfigMapOpt {
-	return func(c *Component) error {
-		if appName == "" {
-			return errors.New("app name cannot be empty")
-		}
-		c.AppName = appName
-		return nil
-	}
-}
-
-// WithAppInstance is a ConfigMapOpt that sets the application instance of the ConfigMap component.
-func WithAppInstance(appInstance string) ConfigMapOpt {
-	return func(c *Component) error {
-		if appInstance == "" {
-			return errors.New("app instance cannot be empty")
-		}
-		c.AppInstance = appInstance
-		return nil
-	}
-}
-
-// WithValuesLoader is a ConfigMapOpt that uses the provided ValuesLoader to populate the ConfigMap data.
-func WithValuesLoader(loader port.ValuesLoader) ConfigMapOpt {
-	return func(c *Component) error {
-		if loader == nil {
-			return errors.New("values loader cannot be nil")
-		}
-		values, err := loader.Values()
-		if err != nil {
-			return fmt.Errorf("loading values: %w", err)
-		}
-		// Create a map if it doesn't exist yet.
-		if c.Data == nil {
-			c.Data = make(map[string]string, len(values))
-		}
-		for key, value := range values {
-			c.Data[key] = dry.MustAs[string](value)
-		}
-		return nil
-	}
-}
 
 // Components creates a new Mapper for ConfigMap components. This can be used by Composites to iterate over a set of
 // provided ConfigMaps. To provide a ConfigMap, a Scalar should implement the `IConfigMap` interface.
@@ -161,14 +56,28 @@ func (m *ComponentMapper) String() string {
 // contain conflicting data.
 //
 // The resulting set of ConfigMaps is then applied using the Scalar ConfigMap methods.
-func (m *ComponentMapper) Apply(cms []IConfigMap) error {
+func (m *ComponentMapper) Apply(ctx context.Context, cf service.ChartFactory, cms []IConfigMap) error {
 	if len(cms) == 0 {
 		return nil // No ConfigMaps to apply.
 	}
+
 	// Create the new Components.
 	ccs := m.createComponents(cms)
-	_, err := m.mapComponents(ccs)
-	return err
+	mapped, err := m.mapComponents(ccs)
+	if err != nil {
+		return fmt.Errorf("mapping ConfigMaps: %w", err)
+	}
+
+	// Validate and Apply each ConfigMap.
+	for _, c := range mapped {
+		if err := c.Validate(ctx); err != nil {
+			return err
+		}
+		if _, err := c.Apply(ctx, cf); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // createComponents iterates over the provided ConfigMaps, applies the ConfigMapOpts to each one, and validates them.
@@ -185,7 +94,7 @@ func (m *ComponentMapper) createComponents(cms []IConfigMap) []*Component {
 		// Create a new Component with the provided options. We'll prepend the WithComponentOverride option first
 		// to set the base properties of the ConfigMap, then apply the rest of the options.
 		opts := append([]ConfigMapOpt{WithComponentOverride(component)}, m.opts...)
-		nc := New(component.Name, opts...)()
+		nc := newScalar(component.Name, opts...)
 		components[i] = nc
 	}
 	// Remove nil components from the slice.
@@ -271,42 +180,6 @@ func calculateDiff(id identifier, m1, m2 map[string]string) error {
 	}
 	slices.Sort(diff)
 	return fmt.Errorf("configmap %q cannot override conflicting keys: %q", id.String(), diff)
-}
-
-// New initializes a new ConfigMap component with the provided name and options.
-// TODO(polds): Return the error returned by the ConfigMapOpt functions. The Composite API doesn't support this yet.
-func New(name string, opts ...ConfigMapOpt) func() *Component {
-	return func() *Component {
-		c := &Component{
-			Name: name,
-		}
-		for _, opt := range opts {
-			_ = opt(c) // Ignore errors for now, as the Composite API does not support returning errors.
-		}
-		return c
-	}
-}
-
-// String returns the name of the component.
-func (c *Component) String() string {
-	return "sdk.ConfigMapV2"
-}
-
-func (c *Component) Validate(ctx context.Context) error {
-	return internal.ValidatorFromContext(ctx).Struct(c)
-}
-
-func (c *Component) Apply(cf service.ChartFactory) *Component {
-	chart := cf.CreateChart(c.String(), c)
-
-	k8s.NewKubeConfigMap(chart, chart.ToString(), &k8s.KubeConfigMapProps{
-		Data: dry.PtrMapping(c.Data),
-	})
-
-	return &Component{
-		Name: c.Name,
-		Data: c.Data,
-	}
 }
 
 func (i identifier) String() string {
