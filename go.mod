@@ -2,6 +2,12 @@ module github.com/smartcontractkit/crib-sdk
 
 go 1.24.4
 
+tool (
+	github.com/daixiang0/gci
+	github.com/hexdigest/gowrap/cmd/gowrap
+	golang.org/x/pkgsite/cmd/pkgsite
+)
+
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alexflint/go-arg v1.6.0
@@ -114,10 +120,4 @@ require (
 	golang.org/x/tools v0.34.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	rsc.io/markdown v0.0.0-20231214224604-88bb533a6020 // indirect
-)
-
-tool (
-	github.com/daixiang0/gci
-	github.com/hexdigest/gowrap/cmd/gowrap
-	golang.org/x/pkgsite/cmd/pkgsite
 )
