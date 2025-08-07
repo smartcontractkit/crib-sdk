@@ -2,20 +2,19 @@ package infra
 
 import (
 	"cmp"
-	"context"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"slices"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
+
+	"github.com/smartcontractkit/crib-sdk/internal/adapter/mempools"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
 	"github.com/smartcontractkit/crib-sdk/internal/core/domain"
 )
-
-type propsValidator interface {
-	Validate(ctx context.Context) error
-}
 
 // ToRFC1123 generates a unique and stable name compatible with Kubernetes DNS-1035 labels.
 //
@@ -153,7 +152,7 @@ func isAlphanumericLowercase(r rune) bool {
 }
 
 // ResourceID generates a resource id for the given prefix and props.
-func ResourceID(prefix string, props propsValidator) *string {
+func ResourceID(prefix string, props any) *string {
 	prefix = strings.TrimSpace(prefix)
 	// Don't touch the resource id if it matches a cdk8s magic string.
 	if cmp.Or(prefix == domain.CDK8sResource, prefix == domain.CDK8sDefault) {
@@ -164,15 +163,55 @@ func ResourceID(prefix string, props propsValidator) *string {
 		prefix = domain.CDK8sUnknown
 	}
 
-	// JSON Marshal the props to a string.
-	b, err := json.Marshal(props)
-	if err != nil {
-		panic(err)
-	}
+	// Encode the props into a byte slice.
+	b := encode(props)
 	// Get the hash as a string and truncate it to 8 characters.
 	hashed := fnvHash(b)[:8]
 	id := fmt.Sprintf("%s-%s", prefix, hashed)
 	return dry.ToPtr(id)
+}
+
+// encode attempts to encode the given value into a byte slice. It will attempt various encoding methods
+// until one succeeds. If no encoding method succeeds, it will panic.
+func encode(v any) []byte {
+	// If the value is a string, return it as a byte slice.
+	if v, ok := v.(string); ok {
+		return []byte(v)
+	}
+	// If the value is a byte slice, return it as is.
+	if v, ok := v.([]byte); ok {
+		return v
+	}
+
+	// Attempt the various marshalers.
+	buf, ret := mempools.BytesBuffer.Get()
+	defer ret()
+
+	// Attempt to JSON marshal the value.
+	if err := json.NewEncoder(buf).Encode(v); err == nil {
+		return buf.Bytes()
+	}
+	buf.Reset() // Reset the buffer for the next attempt.
+	// Attempt to Gob encode the value.
+	if err := gob.NewEncoder(buf).Encode(v); err == nil {
+		return buf.Bytes()
+	}
+	buf.Reset() // Reset the buffer for the next attempt.
+
+	// If that fails, try to call the String() method on the value.
+	if strer, ok := v.(fmt.Stringer); ok {
+		if str := strer.String(); str != "" {
+			return []byte(str)
+		}
+	}
+
+	// Finally, attempt to spew the value to a byte slice.
+	if spew.Fdump(buf, v); buf.Len() > 0 { //nolint:gocritic // Inline is easier to reason about.
+		return buf.Bytes()
+	}
+
+	// If all attempts fail, panic with a message indicating the type of the value.
+	panic(fmt.Sprintf("Could not encode value of type %T: %#v", v, v))
 }
 
 // ExtractResource extracts the resource name from the given generated resource id.
