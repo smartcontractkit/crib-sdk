@@ -214,8 +214,8 @@ func encode(v any) []byte {
 		return buf.Bytes()
 	}
 
-	// If all attempts fail, panic with a message indicating the type of the value.
-	panic(fmt.Sprintf("Could not encode value of type %T: %#v", v, v))
+	// If all attempts fail, panic with a message indicating the type of the value (do not include value contents to avoid leaking sensitive data).
+	panic(fmt.Sprintf("Could not encode value of type %T", v))
 }
 
 // ExtractResource extracts the resource name from the given generated resource id.
