@@ -74,7 +74,7 @@ func WithNamespace(namespace string) ConfigMapOpt {
 	}
 }
 
-// WithData is a ConfigMapOpt that sets the data of the ConfigMap component.
+// WithData is a ConfigMapOpt that merges the data of the ConfigMap component.
 func WithData(data map[string]string) ConfigMapOpt {
 	return func(c *Component) error {
 		if data == nil {
@@ -120,14 +120,14 @@ func WithValuesLoader(loader port.ValuesLoader) ConfigMapOpt {
 		if loader == nil {
 			return errors.New("values loader cannot be nil")
 		}
-		if c.Data != nil {
-			return errors.New("cannot use both Data and ValuesLoader at the same time")
-		}
 		values, err := loader.Values()
 		if err != nil {
 			return fmt.Errorf("loading values: %w", err)
 		}
-		c.Data = make(map[string]string, len(values))
+		// Create a map if it doesn't exist yet.
+		if c.Data == nil {
+			c.Data = make(map[string]string, len(values))
+		}
 		for key, value := range values {
 			c.Data[key] = dry.MustAs[string](value)
 		}
@@ -161,23 +161,19 @@ func (m *ComponentMapper) String() string {
 // contain conflicting data.
 //
 // The resulting set of ConfigMaps is then applied using the Scalar ConfigMap methods.
-func (m *ComponentMapper) Apply(ctx context.Context, cms []IConfigMap) error {
+func (m *ComponentMapper) Apply(cms []IConfigMap) error {
 	if len(cms) == 0 {
 		return nil // No ConfigMaps to apply.
 	}
 	// Create the new Components.
-	ccs, err := m.createComponents(ctx, cms)
-	if err != nil {
-		return err
-	}
-	_, err = m.mapComponents(ccs)
+	ccs := m.createComponents(cms)
+	_, err := m.mapComponents(ccs)
 	return err
 }
 
 // createComponents iterates over the provided ConfigMaps, applies the ConfigMapOpts to each one, and validates them.
-func (m *ComponentMapper) createComponents(ctx context.Context, cms []IConfigMap) ([]*Component, error) {
-	var errs error
-	components := make([]*Component, 0, len(cms))
+func (m *ComponentMapper) createComponents(cms []IConfigMap) []*Component {
+	components := make([]*Component, len(cms))
 	for i, cm := range cms {
 		if cm == nil {
 			continue // Skip nil ConfigMaps.
@@ -190,24 +186,23 @@ func (m *ComponentMapper) createComponents(ctx context.Context, cms []IConfigMap
 		// to set the base properties of the ConfigMap, then apply the rest of the options.
 		opts := append([]ConfigMapOpt{WithComponentOverride(component)}, m.opts...)
 		nc := New(component.Name, opts...)()
-		// Validate each component before adding it to the list.
-		if err := nc.Validate(ctx); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("validating ConfigMap component for index %d (%q): %w", i, nc.Name, err))
-			continue
-		}
 		components[i] = nc
 	}
 	// Remove nil components from the slice.
 	components = lo.Compact(components)
 	components = slices.Clip(components)
-	return dry.Wrap2(components, errs)
+	// Explicitly return nil if there are no components vs returning an empty slice.
+	if len(components) == 0 {
+		return nil // No valid components to return.
+	}
+	return components
 }
 
 // mapComponents takes a slice of ConfigMap components and merges them by their name and namespace.
 func (*ComponentMapper) mapComponents(components []*Component) ([]*Component, error) {
 	var errs error
 	// Create a map to hold the components by their identifier (name and namespace).
-	componentMap := map[identifier]*Component{}
+	componentMap := make(map[identifier]*Component)
 	for _, c := range components {
 		id := identifier{
 			Name:      c.Name,
