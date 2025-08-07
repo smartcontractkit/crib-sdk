@@ -77,8 +77,7 @@ type (
 	//
 	// Example usage in a component:
 	//   func (c *MyComponent) Apply(factory ChartFactory) *MyResult {
-	//       props := &MyProps{Name: "my-component"}
-	//       chart := factory.CreateChart("MyComponent", props)
+	//       chart := factory.CreateChart(c)
 	//       // Use chart to create Kubernetes resources...
 	//       return &MyResult{Chart: chart}
 	//   }
@@ -88,7 +87,7 @@ type (
 	//   chart := cdk8s.NewChart(parent, crib.ResourceID("MyComponent", props), nil)
 	ChartFactory interface {
 		// CreateChart creates a new cdk8s.Chart instance with the given resource name and props.
-		CreateChart(resourceName string, props port.Validator) cdk8s.Chart
+		CreateChart(v any) cdk8s.Chart
 	}
 
 	// chartFactory implements ChartFactory and is automatically injected by the framework.
@@ -133,18 +132,20 @@ func newChartFactory() *chartFactory {
 	return &chartFactory{}
 }
 
-// CreateChart implements ChartFactory by creating a chart with the provided resource name and props.
+// CreateChart implements ChartFactory by creating a chart with the provided resource.
 // It handles the boilerplate of getting the parent construct, generating resource IDs, and creating the chart.
-func (c *chartFactory) CreateChart(resourceName string, props port.Validator) cdk8s.Chart {
+func (c *chartFactory) CreateChart(v any) cdk8s.Chart {
 	parent := internal.ConstructFromContext(c.instanceCtx())
 
-	// The port.Validator interface matches the infra.propsValidator interface
-	if propsValidator, ok := props.(interface{ Validate(context.Context) error }); ok {
-		return cdk8s.NewChart(parent, infra.ResourceID(resourceName, propsValidator), nil)
+	var name string
+	if strer, ok := v.(fmt.Stringer); ok {
+		name = strer.String()
+	} else {
+		// If the value does not implement fmt.Stringer, use its type name as a fallback.
+		name = reflect.TypeOf(v).Name()
 	}
 
-	// Fallback to nil props if validation interface is not properly implemented
-	return cdk8s.NewChart(parent, infra.ResourceID(resourceName, nil), nil)
+	return cdk8s.NewChart(parent, infra.ResourceID(name, v), nil)
 }
 
 // Apply implements the component interface for chartFactory, making it injectable.

@@ -1776,6 +1776,10 @@ func (p *TestChartProps) Validate(ctx context.Context) error {
 	return nil
 }
 
+func (*TestChartProps) String() string {
+	return "TestComponent"
+}
+
 // Component that uses ChartFactory
 type ChartFactoryConsumerComponent struct{}
 
@@ -1785,7 +1789,7 @@ func NewChartFactoryConsumerComponent() *ChartFactoryConsumerComponent {
 
 func (c *ChartFactoryConsumerComponent) Apply(factory ChartFactory) string {
 	props := &TestChartProps{Name: "test-chart"}
-	chart := factory.CreateChart("TestComponent", props)
+	chart := factory.CreateChart(props)
 	// In a real scenario, you'd use the chart to create resources
 	_ = chart
 	return "chart created successfully"
@@ -1906,13 +1910,19 @@ func Test_ChartFactory_Integration(t *testing.T) {
 type mockChartFactory struct {
 	createChartCalled bool
 	lastResourceName  string
-	lastProps         port.Validator
+	lastProps         any
 }
 
-func (m *mockChartFactory) CreateChart(resourceName string, props port.Validator) cdk8s.Chart {
+func (m *mockChartFactory) CreateChart(v any) cdk8s.Chart {
 	m.createChartCalled = true
-	m.lastResourceName = resourceName
-	m.lastProps = props
+	var name string
+	if s, ok := v.(fmt.Stringer); ok {
+		name = s.String()
+	} else {
+		name = reflect.TypeOf(v).Name()
+	}
+	m.lastResourceName = name
+	m.lastProps = v
 	// Return a mock chart - in real usage this would be a proper CDK8s chart
 	return nil // This is fine for testing the DI mechanism
 }
@@ -2755,20 +2765,7 @@ func Test_chartFactory_CreateChart(t *testing.T) {
 		// This will panic because there's no CDK8s construct in context,
 		// but we can verify the method exists and handles the props correctly
 		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", props)
-		}, "should panic without CDK8s context")
-	})
-
-	t.Run("handles nil props gracefully", func(t *testing.T) {
-		factory := &chartFactory{
-			instanceCtx: func() context.Context {
-				return t.Context()
-			},
-		}
-
-		// This will also panic due to missing CDK8s context, but verifies nil handling
-		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", nil)
+			factory.CreateChart(props)
 		}, "should panic without CDK8s context")
 	})
 
@@ -2782,7 +2779,7 @@ func Test_chartFactory_CreateChart(t *testing.T) {
 
 		// Test the fallback path with nil props - this should hit the fallback branch
 		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", nil)
+			factory.CreateChart(nil)
 		}, "should panic without CDK8s context and hit fallback path for nil props")
 	})
 }
