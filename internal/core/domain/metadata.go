@@ -36,7 +36,7 @@ func NewMetadataFactory(props *DefaultResourceMetadataProps) (*MetadataFactory, 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	err := validate.Struct(props)
 	if err != nil {
-		return nil, dry.Wrapf(err, "validation failed")
+		return nil, dry.Wrapf(err, "validating DefaultResourceMetadataProps")
 	}
 
 	return &MetadataFactory{
