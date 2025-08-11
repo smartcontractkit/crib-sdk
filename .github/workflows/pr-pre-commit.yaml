@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu24.04-8cores-32GB
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0 # important for full history
