@@ -92,5 +92,6 @@ jobs:
               });
               core.info(`removed autoready label from pr #${issue_number}`);
             } catch (error) {
-              core.setFailed(`error processing pr #${issue_number}: ${error.message}`);
+              const msg = error && typeof error.message === 'string' ? error.message : String(error);
+              core.setFailed(`error processing pr #${issue_number}: ${msg}`);
             }
