@@ -27,7 +27,7 @@ require (
 	github.com/theckman/yacspin v0.13.12
 	github.com/xlab/treeprint v1.2.0
 	go.uber.org/fx v1.24.0
-	golang.org/x/mod v0.26.0
+	golang.org/x/mod v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
