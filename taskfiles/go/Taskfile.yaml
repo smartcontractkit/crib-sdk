@@ -33,15 +33,23 @@ tasks:
 
   tidy:
     desc: Run go mod tidy.
+    silent: true
     sources:
       - go.mod
+      - "**/go.mod"
+    generates:
+      - go.mod
       - go.sum
-      - cmd/cribctl/go.mod
-      - cmd/cribctl/go.sum
+      - "**/go.mod"
+      - "**/go.sum"
     cmds:
-      - asdf exec go work sync
-      - asdf exec go mod tidy
-      - asdf exec go mod verify
+      - for: sources
+        cmd: |
+          echo "Updating go modules for {{ dir .ITEM }}"
+          pushd {{ dir .ITEM }} > /dev/null || exit 1
+          asdf exec go mod tidy
+          asdf exec go mod verify
+          popd > /dev/null || exit 1
 
   lint:
     desc: Run golangci-lint.

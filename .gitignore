@@ -2,6 +2,8 @@
 # Go
 ############################
 
+go.work
+go.work.sum
 ./gen
 
 # Test binary, built with `go test -c`
