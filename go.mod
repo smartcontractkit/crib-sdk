@@ -9,7 +9,7 @@ require (
 	github.com/aws/jsii-runtime-go v1.113.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
 	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.7
-	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8
+	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.10
 	github.com/charmbracelet/huh v0.7.0
 	github.com/creasty/defaults v1.8.0
 	github.com/davecgh/go-spew v1.1.1
