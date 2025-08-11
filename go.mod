@@ -6,15 +6,15 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alexflint/go-arg v1.6.0
 	github.com/aws/constructs-go/constructs/v10 v10.4.2
-	github.com/aws/jsii-runtime-go v1.112.0
+	github.com/aws/jsii-runtime-go v1.113.0
 	github.com/brianvoe/gofakeit/v7 v7.3.0
-	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.4
+	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.7
 	github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2 v2.4.8
 	github.com/charmbracelet/huh v0.7.0
 	github.com/creasty/defaults v1.8.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/expr-lang/expr v1.17.5
-	github.com/gkampitakis/go-snaps v0.5.13
+	github.com/gkampitakis/go-snaps v0.5.14
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0
 	github.com/imdario/mergo v0.3.16
@@ -34,7 +34,7 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.1 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -100,14 +100,14 @@ require (
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/lint v0.0.0-20241112194109-818c5a804067 // indirect
-	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/pkgsite v0.0.0-20250530215610-4d41929ccc35 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
-	golang.org/x/tools v0.34.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 	rsc.io/markdown v0.0.0-20231214224604-88bb533a6020 // indirect
 )
