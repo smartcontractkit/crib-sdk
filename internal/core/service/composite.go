@@ -11,13 +11,11 @@ import (
 	"sync"
 	"weak"
 
-	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
 	"github.com/samber/lo"
 	"go.uber.org/fx"
 
 	"github.com/smartcontractkit/crib-sdk/internal"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
-	"github.com/smartcontractkit/crib-sdk/internal/core/common/infra"
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
 
@@ -70,29 +68,6 @@ type (
 		instanceCtx func() context.Context
 	}
 
-	// ChartFactory provides a clean interface for components to create charts without boilerplate.
-	// The framework automatically provides an implementation that handles context and resource ID generation.
-	//
-	// Example usage in a component:
-	//   func (c *MyComponent) Apply(factory ChartFactory) *MyResult {
-	//       chart := factory.CreateChart(c)
-	//       // Use chart to create Kubernetes resources...
-	//       return &MyResult{Chart: chart}
-	//   }
-	//
-	// This eliminates the need for these repetitive lines in every component:
-	//   parent := internal.ConstructFromContext(ctx)
-	//   chart := cdk8s.NewChart(parent, crib.ResourceID("MyComponent", props), nil)
-	ChartFactory interface {
-		// CreateChart creates a new cdk8s.Chart instance with the given resource name and props.
-		CreateChart(v any) cdk8s.Chart
-	}
-
-	// chartFactory implements ChartFactory and is automatically injected by the framework.
-	chartFactory struct {
-		instanceCtx func() context.Context
-	}
-
 	// CompositeResult satisfies the port.Component interface and contains the result of applying a Composite.
 	// TODO(polds): This is inaccurate. It only contains the root cdk8s.Chart instance.
 	// 	Still need a way to fetch into a composite and get their results.
@@ -126,36 +101,6 @@ func (c *chartContext) Name() string {
 	return "sdk.composite.builtin.chartContext"
 }
 
-func newChartFactory() *chartFactory {
-	return &chartFactory{}
-}
-
-// CreateChart implements ChartFactory by creating a chart with the provided resource.
-// It handles the boilerplate of getting the parent construct, generating resource IDs, and creating the chart.
-func (c *chartFactory) CreateChart(v any) cdk8s.Chart {
-	parent := internal.ConstructFromContext(c.instanceCtx())
-
-	var name string
-	if strer, ok := v.(fmt.Stringer); ok {
-		name = strer.String()
-	} else {
-		// If the value does not implement fmt.Stringer, use its type name as a fallback.
-		name = reflect.TypeOf(v).Name()
-	}
-
-	return cdk8s.NewChart(parent, infra.ResourceID(name, v), nil)
-}
-
-// Apply implements the component interface for chartFactory, making it injectable.
-func (c *chartFactory) Apply(ctx context.Context) ChartFactory {
-	c.instanceCtx = func() context.Context { return ctx }
-	return c
-}
-
-func (c *chartFactory) Name() string {
-	return "sdk.composite.builtin.chartFactory"
-}
-
 // NewCompositeSet initializes a CompositeSet with the base Fx options.
 // It sets up a lifecycle hook to apply the composite when the application starts.
 // The returned CompositeSet can be used to apply components defined in the Composite.
@@ -177,14 +122,12 @@ func NewCompositeSet() *CompositeSet {
 }
 
 func (c *CompositeSet) Apply(ctx context.Context, ctors ...any) (port.Component, error) {
-	id := infra.ResourceID("sdk.composite", newConstructorRefs(ctors...))
-	parent := internal.ConstructFromContext(ctx)
-	chart := cdk8s.NewChart(parent, id, nil)
+	chart := NewChartFactory(ctx)().NewChart(newConstructorRefs(ctors...))
 	ctx = internal.ContextWithConstruct(ctx, chart)
 	ctors = append(
 		[]any{
 			newChartContext(ctx),
-			newChartFactory,
+			NewChartFactory(ctx),
 		},
 		ctors...,
 	)
@@ -195,15 +138,17 @@ func (c *CompositeSet) Apply(ctx context.Context, ctors ...any) (port.Component,
 	)
 
 	app := fx.New(opts...)
-	return CompositeResult{
-			Component: chart,
-		},
+	return dry.Wrap2(
+		CompositeResult{Component: chart},
 		dry.FirstError(
 			dry.Wrapf(app.Start(ctx), "starting composite application"),
 			dry.Wrapf(app.Stop(ctx), "cleaning up composite application"),
-		)
+		),
+	)
 }
 
+// Apply is the main entry point for the Composite pattern. This is executed by the Fx application lifecycle when
+// CompositeSet.Apply is called.
 func (c *Composite) Apply(context.Context) error {
 	graph, err := c.dependencyGraph()
 	if err != nil {
@@ -691,4 +636,8 @@ func newConstructorRefs(ctors ...any) constructorRefs {
 func (constructorRefs) Validate(context.Context) error {
 	// This is a no-op, as the CompositeSet does not have any props to validate
 	return nil
+}
+
+func (constructorRefs) String() string {
+	return "sdk.composite"
 }
