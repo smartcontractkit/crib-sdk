@@ -77,6 +77,9 @@ func (app *TestApp) DisableSnapshots() *TestApp {
 //
 //nolint:revive // SynthYaml matches the cdk8s method name.
 func (app *TestApp) SynthYaml() *string {
+	if JSIIKernelMutex.TryLock() {
+		defer JSIIKernelMutex.Unlock()
+	}
 	return SynthAndSnapYamls(app.t, app)
 }
 
