@@ -2,6 +2,7 @@ package infra
 
 import (
 	"context"
+	"encoding/gob"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/crib-sdk/internal/adapter/mempools"
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
 	"github.com/smartcontractkit/crib-sdk/internal/core/domain"
 )
@@ -145,7 +147,7 @@ func TestResourceID(t *testing.T) {
 	tests := []struct {
 		name     string
 		prefix   string
-		props    propsValidator
+		props    any
 		expected string
 	}{
 		{
@@ -284,6 +286,93 @@ func TestExtractResourceID(t *testing.T) {
 			is := assert.New(t)
 			got := ExtractResource(dry.ToPtr(tc.resource))
 			is.Equal(tc.want, got)
+		})
+	}
+}
+
+type jsonFixture struct {
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
+type gobFixture struct {
+	MyStr string
+	Ch    chan int
+}
+
+// stringerBad encodes to String() successfully, but is not encodable via JSON or gob
+// because it contains a channel field.
+type stringerBad struct{ C chan int }
+
+func (s stringerBad) String() string { return "stringer-ok" }
+
+// stringerEmpty hits the spew path because JSON and gob both fail, and String() returns empty.
+type stringerEmpty struct{ C chan int }
+
+func (s stringerEmpty) String() string { return "" }
+
+func Test_encode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		desc string
+		in   any
+		want string
+	}{
+		{
+			desc: "nil",
+			in:   "null",
+			want: "null",
+		},
+		{
+			desc: "nil pointer",
+			in:   (*string)(nil),
+			want: "null",
+		},
+		{
+			desc: "string",
+			in:   "hello world",
+			want: "hello world",
+		},
+		{
+			desc: "bytes",
+			in:   []byte("bytes here"),
+			want: "bytes here",
+		},
+		{
+			desc: "json",
+			in:   jsonFixture{Name: "bob", Age: 2},
+			want: `{"name":"bob","age":2}`,
+		},
+		{
+			desc: "gob",
+			in:   &gobFixture{},
+			want: func() string {
+				buf, ret := mempools.BytesBuffer.Get()
+				defer ret()
+				err := gob.NewEncoder(buf).Encode(&gobFixture{})
+				require.NoError(t, err, "gob encoding failed")
+				return buf.String()
+			}(),
+		},
+		{
+			desc: "stringer",
+			in:   stringerBad{C: make(chan int)},
+			want: "stringer-ok",
+		},
+		{
+			desc: "spew",
+			in:   stringerEmpty{C: make(chan int)},
+			want: "(infra.stringerEmpty) \n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			got := encode(tc.in)
+			assert.Equal(t, tc.want, string(got))
 		})
 	}
 }

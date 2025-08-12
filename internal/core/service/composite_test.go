@@ -1797,6 +1797,10 @@ func (p *TestChartProps) Validate(ctx context.Context) error {
 	return nil
 }
 
+func (*TestChartProps) String() string {
+	return "TestComponent"
+}
+
 // Component that uses ChartFactory
 type ChartFactoryConsumerComponent struct{}
 
@@ -1804,9 +1808,9 @@ func NewChartFactoryConsumerComponent() *ChartFactoryConsumerComponent {
 	return &ChartFactoryConsumerComponent{}
 }
 
-func (c *ChartFactoryConsumerComponent) Apply(factory ChartFactory) string {
+func (c *ChartFactoryConsumerComponent) Apply(factory IChartFactory) string {
 	props := &TestChartProps{Name: "test-chart"}
-	chart := factory.CreateChart("TestComponent", props)
+	chart := factory.NewChart(props)
 	// In a real scenario, you'd use the chart to create resources
 	_ = chart
 	return "chart created successfully"
@@ -1837,10 +1841,10 @@ func Test_ChartFactory(t *testing.T) {
 	t.Run("ChartFactory interface is properly defined", func(t *testing.T) {
 		// Test that the interface has the expected methods
 		ctx := t.Context()
-		factory := &chartFactory{}
+		factory := new(ChartFactory)
 
 		// Ensure it implements ChartFactory interface
-		var _ ChartFactory = factory
+		var _ IChartFactory = factory
 
 		// Test Apply method returns the factory itself
 		returnedFactory := factory.Apply(ctx)
@@ -1849,14 +1853,13 @@ func Test_ChartFactory(t *testing.T) {
 
 	t.Run("ChartFactory is injected correctly", func(t *testing.T) {
 		// Test that the chartFactory can be analyzed and used in DI
-
-		component, err := constructor(newChartFactory, nil).Analyze()
+		component, err := constructor(NewChartFactory(t.Context()), nil).Analyze()
 		require.NoError(t, err)
 
 		// Should produce ChartFactory interface type
-		expectedType := reflect.TypeOf((*ChartFactory)(nil)).Elem()
+		expectedType := reflect.TypeOf((*IChartFactory)(nil)).Elem()
 		assert.Equal(t, expectedType, component.produces)
-		assert.Equal(t, "sdk.composite.builtin.chartFactory", component.name)
+		assert.Equal(t, "sdk.composite.builtin.ChartFactory", component.name)
 	})
 }
 
@@ -1869,14 +1872,14 @@ func Test_ChartFactory_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should consume ChartFactory interface
-		expectedType := reflect.TypeOf((*ChartFactory)(nil)).Elem()
+		expectedType := reflect.TypeOf((*IChartFactory)(nil)).Elem()
 		assert.Contains(t, component.consumes, expectedType)
 		assert.Equal(t, "ChartFactoryConsumerComponent", component.name)
 	})
 
 	t.Run("ChartFactory dependency injection works end-to-end", func(t *testing.T) {
 		// Create a mock factory that doesn't actually create charts
-		mockFactory := &mockChartFactory{}
+		mockFactory := new(mockChartFactory)
 
 		// Create components that demonstrate the ChartFactory usage
 		components := []*AutoComponent{
@@ -1885,7 +1888,7 @@ func Test_ChartFactory_Integration(t *testing.T) {
 				component:   mockFactory,
 				name:        "MockChartFactory",
 				applyMethod: reflect.TypeOf(mockFactory).Method(0), // Apply method
-				produces:    reflect.TypeOf((*ChartFactory)(nil)).Elem(),
+				produces:    reflect.TypeOf((*IChartFactory)(nil)).Elem(),
 			},
 			mustAnalyzeConstructor(NewChartFactoryConsumerComponent),
 		}
@@ -1903,7 +1906,7 @@ func Test_ChartFactory_Integration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify ChartFactory was stored
-		factoryResult, exists := composite.results[reflect.TypeOf((*ChartFactory)(nil)).Elem()]
+		factoryResult, exists := composite.results[reflect.TypeOf((*IChartFactory)(nil)).Elem()]
 		assert.True(t, exists)
 		assert.NotNil(t, factoryResult)
 
@@ -1927,18 +1930,24 @@ func Test_ChartFactory_Integration(t *testing.T) {
 type mockChartFactory struct {
 	createChartCalled bool
 	lastResourceName  string
-	lastProps         port.Validator
+	lastProps         any
 }
 
-func (m *mockChartFactory) CreateChart(resourceName string, props port.Validator) cdk8s.Chart {
+func (m *mockChartFactory) NewChart(v any, _ ...ChartOptFn) cdk8s.Chart {
 	m.createChartCalled = true
-	m.lastResourceName = resourceName
-	m.lastProps = props
+	var name string
+	if s, ok := v.(fmt.Stringer); ok {
+		name = s.String()
+	} else {
+		name = reflect.TypeOf(v).Name()
+	}
+	m.lastResourceName = name
+	m.lastProps = v
 	// Return a mock chart - in real usage this would be a proper CDK8s chart
 	return nil // This is fine for testing the DI mechanism
 }
 
-func (m *mockChartFactory) Apply() ChartFactory {
+func (m *mockChartFactory) Apply() IChartFactory {
 	return m
 }
 
@@ -2229,9 +2238,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_EdgeCases(t *testing.T) {
 		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
 
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(component)
-
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(component))
 
 		// Should only include the actual MessageProcessor implementations
 		result, exists := composite.results[reflect.TypeOf("")]
@@ -2764,8 +2771,8 @@ func Test_chartFactory_CreateChart(t *testing.T) {
 		// Test the validation interface detection without full CDK8s
 		props := &TestChartProps{Name: "test-factory"}
 
-		factory := &chartFactory{
-			instanceCtx: func() context.Context {
+		factory := &ChartFactory{
+			ctxFn: func() context.Context {
 				return t.Context()
 			},
 		}
@@ -2773,34 +2780,21 @@ func Test_chartFactory_CreateChart(t *testing.T) {
 		// This will panic because there's no CDK8s construct in context,
 		// but we can verify the method exists and handles the props correctly
 		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", props)
-		}, "should panic without CDK8s context")
-	})
-
-	t.Run("handles nil props gracefully", func(t *testing.T) {
-		factory := &chartFactory{
-			instanceCtx: func() context.Context {
-				return t.Context()
-			},
-		}
-
-		// This will also panic due to missing CDK8s context, but verifies nil handling
-		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", nil)
+			factory.NewChart(props)
 		}, "should panic without CDK8s context")
 	})
 
 	t.Run("handles nil props fallback path", func(t *testing.T) {
 		// Test the fallback path with nil props, which doesn't implement the validation interface
-		factory := &chartFactory{
-			instanceCtx: func() context.Context {
+		factory := &ChartFactory{
+			ctxFn: func() context.Context {
 				return t.Context()
 			},
 		}
 
 		// Test the fallback path with nil props - this should hit the fallback branch
 		assert.Panics(t, func() {
-			factory.CreateChart("TestChart", nil)
+			factory.NewChart(nil)
 		}, "should panic without CDK8s context and hit fallback path for nil props")
 	})
 }
@@ -2809,7 +2803,7 @@ func Test_chartFactory_Apply(t *testing.T) {
 	t.Parallel()
 
 	t.Run("sets context and returns self", func(t *testing.T) {
-		factory := &chartFactory{}
+		factory := new(ChartFactory)
 		ctx := context.WithValue(t.Context(), "factory-key", "factory-value")
 
 		result := factory.Apply(ctx)
@@ -2818,13 +2812,13 @@ func Test_chartFactory_Apply(t *testing.T) {
 		assert.Equal(t, factory, result)
 
 		// Should have stored the context
-		storedCtx := factory.instanceCtx()
+		storedCtx := factory.ctxFn()
 		assert.Equal(t, "factory-value", storedCtx.Value("factory-key"))
 	})
 
 	t.Run("String returns expected identifier", func(t *testing.T) {
-		factory := &chartFactory{}
-		assert.Equal(t, "sdk.composite.builtin.chartFactory", factory.Name())
+		factory := new(ChartFactory)
+		assert.Equal(t, "sdk.composite.builtin.ChartFactory", factory.String())
 	})
 }
 
@@ -2930,8 +2924,7 @@ func Test_constructorRefs_Validate(t *testing.T) {
 
 	t.Run("always returns nil", func(t *testing.T) {
 		refs := constructorRefs{}
-		err := refs.Validate(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, refs.Validate(t.Context()))
 	})
 }
 

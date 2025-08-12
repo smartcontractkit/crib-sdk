@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
 	"github.com/cdk8s-team/cdk8s-plus-go/cdk8splus30/v2/k8s"
 
 	"github.com/smartcontractkit/crib-sdk/crib"
@@ -28,6 +27,10 @@ type (
 // Validate ensures that the Props struct satisfies the crib.Props interface.
 func (p *Props) Validate(ctx context.Context) error {
 	return internal.ValidatorFromContext(ctx).Struct(p)
+}
+
+func (p *Props) String() string {
+	return "sdk.ConfigMapV1"
 }
 
 // Component returns a ComponentFunc for configmap.
@@ -69,8 +72,7 @@ func loadData(props *Props) error {
 // install a single configmap resource.
 func New(ctx context.Context, props crib.Props) (crib.Component, error) {
 	scalarProps := dry.MustAs[*Props](props)
-	parent := internal.ConstructFromContext(ctx)
-	chart := cdk8s.NewChart(parent, crib.ResourceID("sdk.ConfigMapV1", props), nil)
+	chart := crib.NewChart(ctx, scalarProps)
 
 	configMapResourceID := crib.ResourceID(domain.CDK8sResource, props)
 	resourceMetadataProps := &domain.DefaultResourceMetadataProps{

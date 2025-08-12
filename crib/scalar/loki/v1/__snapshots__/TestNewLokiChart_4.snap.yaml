@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    helm.sh/chart: component-chart-0.9.1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: loki
+    helm.crib.sdk/chart: component-chart
+    helm.crib.sdk/name: helm-loki
+    helm.crib.sdk/namespace: ns-loki
+    helm.crib.sdk/release: loki
+  name: loki-ingress
+  namespace: ns-loki
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: loki.localhost
+      http:
+        paths:
+          - backend:
+              service:
+                name: loki
+                port:
+                  number: 3100
+            path: /
+            pathType: ImplementationSpecific

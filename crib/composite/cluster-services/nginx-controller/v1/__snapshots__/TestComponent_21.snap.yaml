@@ -1,0 +1,16 @@
+apiVersion: crib.smartcontract.com/v1alpha1
+kind: ClientSideApply
+metadata:
+  name: sdk-nginxcontrol-sdk-clientsideapply-0b657d82-c838e925
+  namespace: ingress-nginx
+spec:
+  action: kubectl
+  args:
+    - wait
+    - -n
+    - ingress-nginx
+    - --for=condition=ready
+    - pod
+    - -l=app.kubernetes.io/component=controller,app.kubernetes.io/instance=ingress-nginx,app.kubernetes.io/name=ingress-nginx
+    - --timeout=600s
+  onFailure: abort

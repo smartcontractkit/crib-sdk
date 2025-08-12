@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2"
-	"github.com/gkampitakis/go-snaps/snaps"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 
@@ -18,15 +17,11 @@ func TestComponent(t *testing.T) {
 		t.Skip("Skipping test in short mode.")
 	}
 	t.Parallel()
-	internal.JSIIKernelMutex.Lock()
-	defer internal.JSIIKernelMutex.Unlock()
 	is := assert.New(t)
-
 	app := internal.NewTestApp(t)
-	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
 
 	c := Component()
-	component, err := c(ctx)
+	component, err := c(app.Context())
 	is.NoError(err)
 	is.NotNil(component)
 
@@ -82,5 +77,5 @@ func TestComponent(t *testing.T) {
 		is.Equal("crib.smartcontract.com", *obj.ApiGroup())
 	})
 
-	snaps.MatchSnapshot(t, *app.SynthYaml())
+	app.SynthYaml()
 }

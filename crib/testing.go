@@ -32,5 +32,8 @@ func NewHelmValuesLoader(ctx context.Context, path string) (*internal.FileLoader
 
 // NewTestApp creates a new test Chart scope for use in unit tests.
 func NewTestApp(t *testing.T) *TestApp {
+	if t == nil {
+		panic("argument 't' cannot be nil and should be a *testing.T instance")
+	}
 	return internal.NewTestApp(t)
 }
