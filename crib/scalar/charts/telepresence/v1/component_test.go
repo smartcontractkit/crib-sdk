@@ -41,17 +41,16 @@ func TestChartComponent_telepresence(t *testing.T) {
 	}
 
 	app := internal.NewTestApp(t)
-	ctx = internal.ContextWithConstruct(ctx, app.Chart)
 	props := &helmchart.ChartProps{
 		Namespace:    "test-ns-" + chartName,
 		ValuesLoader: loader,
 	}
 
-	component, err := Component(props)(ctx)
+	component, err := Component(props)(app.Context())
 	must.NoError(err)
 	must.NotNil(component)
 
-	raw := *app.SynthYaml()
+	raw := *app.DisableSnapshots().SynthYaml()
 	for manifest := range unmarshalManifests(t, []byte(raw)) {
 		_, err = yaml.Marshal(manifest)
 		assert.NoError(t, err)
