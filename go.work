@@ -1,9 +1,0 @@
-go 1.24.4
-
-toolchain go1.24.4
-
-use (
-	.
-	examples/nodeset-example
-	examples/nodeset-shared-postgres-example
-)

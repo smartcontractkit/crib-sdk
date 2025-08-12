@@ -33,6 +33,17 @@ func (s *SimpleComponent) String() string {
 	return "SimpleComponent"
 }
 
+// Named component with Name method.
+type NamedComponent struct{}
+
+func NewNamedComponent() *NamedComponent { return &NamedComponent{} }
+
+func (n *NamedComponent) Apply() {}
+
+func (n *NamedComponent) Name() string {
+	return "NamedComponent"
+}
+
 // Component with Apply method - no params, single return
 type ProducerComponent struct{}
 
@@ -199,35 +210,35 @@ func Test_analyzeConstructor(t *testing.T) {
 			desc:         "producer component - no params, single return",
 			constructor:  NewProducerComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewProducerComponent",
+			wantName:     "service.ProducerComponent",
 			wantProduces: reflect.TypeOf(""),
 		},
 		{
 			desc:         "multi-return component - no params, multiple returns",
 			constructor:  NewMultiReturnComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewMultiReturnComponent",
+			wantName:     "service.MultiReturnComponent",
 			wantProduces: reflect.TypeOf(""),
 		},
 		{
 			desc:         "consumer component - single param, no return",
 			constructor:  NewConsumerComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewConsumerComponent",
+			wantName:     "service.ConsumerComponent",
 			wantConsumes: []reflect.Type{reflect.TypeOf("")},
 		},
 		{
 			desc:         "multi-consumer component - multiple params, no return",
 			constructor:  NewMultiConsumerComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewMultiConsumerComponent",
+			wantName:     "service.MultiConsumerComponent",
 			wantConsumes: []reflect.Type{reflect.TypeOf(""), reflect.TypeOf(0)},
 		},
 		{
 			desc:            "slice consumer component - slice param, no return",
 			constructor:     NewSliceConsumerComponent,
 			wantErr:         assert.NoError,
-			wantName:        "service.NewSliceConsumerComponent",
+			wantName:        "service.SliceConsumerComponent",
 			wantConsumes:    []reflect.Type{reflect.TypeOf([]string{})},
 			wantIsSliceType: true,
 		},
@@ -235,7 +246,7 @@ func Test_analyzeConstructor(t *testing.T) {
 			desc:            "mixed component - regular and slice params with return",
 			constructor:     NewMixedComponent,
 			wantErr:         assert.NoError,
-			wantName:        "service.NewMixedComponent",
+			wantName:        "service.MixedComponent",
 			wantProduces:    reflect.TypeOf(""),
 			wantConsumes:    []reflect.Type{reflect.TypeOf((*context.Context)(nil)).Elem(), reflect.TypeOf(""), reflect.TypeOf([]int{})},
 			wantIsSliceType: true,
@@ -244,20 +255,20 @@ func Test_analyzeConstructor(t *testing.T) {
 			desc:        "non-stringer component",
 			constructor: NewNonStringerComponent,
 			wantErr:     assert.NoError,
-			wantName:    "service.NewNonStringerComponent",
+			wantName:    "service.NonStringerComponent",
 		},
 		{
 			desc:         "interface consumer component",
 			constructor:  NewInterfaceConsumerComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewInterfaceConsumerComponent",
+			wantName:     "service.InterfaceConsumerComponent",
 			wantConsumes: []reflect.Type{reflect.TypeOf((*any)(nil)).Elem()},
 		},
 		{
 			desc:            "complex slice component",
 			constructor:     NewComplexSliceComponent,
 			wantErr:         assert.NoError,
-			wantName:        "service.NewComplexSliceComponent",
+			wantName:        "service.ComplexSliceComponent",
 			wantConsumes:    []reflect.Type{reflect.TypeOf([]*SimpleComponent{})},
 			wantIsSliceType: true,
 		},
@@ -265,7 +276,7 @@ func Test_analyzeConstructor(t *testing.T) {
 			desc:         "context component",
 			constructor:  NewContextComponent,
 			wantErr:      assert.NoError,
-			wantName:     "service.NewContextComponent",
+			wantName:     "service.ContextComponent",
 			wantProduces: reflect.TypeOf(""),
 			wantConsumes: []reflect.Type{reflect.TypeOf((*context.Context)(nil)).Elem()},
 		},
@@ -275,19 +286,7 @@ func Test_analyzeConstructor(t *testing.T) {
 			desc:        "nil constructor",
 			constructor: nil,
 			wantErr:     assert.Error,
-			errContains: "cannot register nil component",
-		},
-		{
-			desc:        "non-function constructor",
-			constructor: "not a function",
-			wantErr:     assert.Error,
-			errContains: "component must be a callable function",
-		},
-		{
-			desc:        "function with parameters",
-			constructor: func(param string) *SimpleComponent { return &SimpleComponent{} },
-			wantErr:     assert.Error,
-			errContains: "non-zero required arguments",
+			errContains: "cannot analyze nil component",
 		},
 
 		// Error cases specific to analyzeConstructor
@@ -301,24 +300,23 @@ func Test_analyzeConstructor(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			got, err := analyzeConstructor(tc.constructor)
-
+			c := constructor(tc.constructor, nil)
+			got, err := c.Analyze()
 			if !tc.wantErr(t, err) {
 				return
 			}
-
 			if err != nil {
 				assert.ErrorContains(t, err, tc.errContains)
 				return
 			}
 
 			// Validate successful results
-			assert.Equal(t, tc.wantName, got.name)
+			assert.Contains(t, got.name, tc.wantName)
 			assert.Equal(t, tc.wantProduces, got.produces)
 			assert.Equal(t, tc.wantConsumes, got.consumes)
 			assert.Equal(t, tc.wantIsSliceType, got.isSliceType)
 			assert.NotNil(t, got.component)
-			assert.NotZero(t, got.runMethod)
+			assert.NotZero(t, got.applyMethod)
 		})
 	}
 }
@@ -326,49 +324,72 @@ func Test_analyzeConstructor(t *testing.T) {
 func Test_analyzeConstructor_PanicCases(t *testing.T) {
 	t.Parallel()
 
-	t.Run("constructor that panics", func(t *testing.T) {
-		assert.Panics(t, func() {
-			_, _ = analyzeConstructor(NewPanicComponent)
+	tests := []struct {
+		desc        string
+		constructor any
+	}{
+		{
+			desc:        "constructor panics",
+			constructor: NewPanicComponent,
+		},
+		{
+			desc:        "constructor with no returns",
+			constructor: NewNoReturnComponent,
+		},
+		{
+			desc:        "not a valid constructor",
+			constructor: "foo bar",
+		},
+		{
+			desc:        "function with parameters",
+			constructor: func(string) *SimpleComponent { return &SimpleComponent{} },
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert.Panics(t, func() {
+				_, _ = constructor(tc.constructor, nil).Analyze()
+			})
 		})
-	})
-
-	t.Run("constructor with no returns", func(t *testing.T) {
-		assert.Panics(t, func() {
-			_, _ = analyzeConstructor(NewNoReturnComponent)
-		})
-	})
+	}
 }
 
 func Test_analyzeConstructor_EdgeCases(t *testing.T) {
 	t.Parallel()
 
 	t.Run("component implements fmt.Stringer", func(t *testing.T) {
-		got, err := analyzeConstructor(NewSimpleComponent)
+		got, err := constructor(NewSimpleComponent, nil).Analyze()
 		require.NoError(t, err)
 		assert.Equal(t, "SimpleComponent", got.name)
 	})
 
-	t.Run("component does not implement fmt.Stringer", func(t *testing.T) {
-		got, err := analyzeConstructor(NewNonStringerComponent)
+	t.Run("component implements an interface with Name()", func(t *testing.T) {
+		got, err := constructor(NewNamedComponent, nil).Analyze()
 		require.NoError(t, err)
-		assert.Equal(t, "service.NewNonStringerComponent", got.name)
+		assert.Equal(t, "NamedComponent", got.name)
+	})
+
+	t.Run("component does not implement fmt.Stringer", func(t *testing.T) {
+		got, err := constructor(NewNonStringerComponent, nil).Analyze()
+		require.NoError(t, err)
+		assert.Contains(t, got.name, "service.NonStringerComponent")
 	})
 
 	t.Run("Apply method with multiple output parameters", func(t *testing.T) {
-		got, err := analyzeConstructor(NewMultiReturnComponent)
+		got, err := constructor(NewMultiReturnComponent, nil).Analyze()
 		require.NoError(t, err)
 		// Should only capture the first return type
 		assert.Equal(t, reflect.TypeOf(""), got.produces)
 	})
 
 	t.Run("Apply method with no output parameters", func(t *testing.T) {
-		got, err := analyzeConstructor(NewSimpleComponent)
+		got, err := constructor(NewSimpleComponent, nil).Analyze()
 		require.NoError(t, err)
 		assert.Nil(t, got.produces)
 	})
 
 	t.Run("complex slice type analysis", func(t *testing.T) {
-		got, err := analyzeConstructor(NewComplexSliceComponent)
+		got, err := constructor(NewComplexSliceComponent, nil).Analyze()
 		require.NoError(t, err)
 		assert.True(t, got.isSliceType)
 		expectedType := reflect.TypeOf([]*SimpleComponent{})
@@ -376,7 +397,7 @@ func Test_analyzeConstructor_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("mixed parameter types with slice", func(t *testing.T) {
-		got, err := analyzeConstructor(NewMixedComponent)
+		got, err := constructor(NewMixedComponent, nil).Analyze()
 		require.NoError(t, err)
 		assert.True(t, got.isSliceType)
 		assert.Len(t, got.consumes, 3)
@@ -390,14 +411,15 @@ func Test_componentName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		desc  string
-		input any
-		want  string
+		desc   string
+		input  any
+		nameFn func(string) string
+		want   string
 	}{
 		{
 			desc:  "type does not implement fmt.Stringer",
 			input: newCompositeNoImpl,
-			want:  "service.newCompositeNoImpl",
+			want:  "service.compositeNoImpl",
 		},
 		{
 			desc:  "constructor implements fmt.Stringer",
@@ -421,16 +443,22 @@ func Test_componentName(t *testing.T) {
 			}(),
 			want: "My Composite",
 		},
+		{
+			desc:  "custom name function",
+			input: newCompositeImpl,
+			nameFn: func(name string) string {
+				return fmt.Sprintf("CustomName: %s", name)
+			},
+			want: "CustomName: My Composite",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			var got string
 			assert.NotPanics(t, func() {
-				val := reflect.ValueOf(tc.input)
-				res := val.Call(nil)
-				got = componentName(tc.input, reflect.TypeOf(res[0].Interface()))
+				got = constructor(tc.input, tc.nameFn).Name()
 			})
-			assert.Equal(t, tc.want, got)
+			assert.Contains(t, got, tc.want)
 		})
 	}
 }
@@ -504,7 +532,7 @@ func Test_isCallable(t *testing.T) {
 			desc:        "non-callable type",
 			input:       "Hello, World!",
 			wantErr:     assert.Error,
-			errContains: "have string",
+			errContains: "of type string",
 		},
 		{
 			desc:        "nil input",
@@ -515,7 +543,7 @@ func Test_isCallable(t *testing.T) {
 			desc:        "nil input with type assertion",
 			input:       (*compositeNoImpl)(nil), // This is a pointer to a type that is not a function.
 			wantErr:     assert.Error,
-			errContains: "have *service.compositeNoImpl",
+			errContains: "of type *service.compositeNoImpl",
 		},
 		{
 			desc:        "function has arguments",
@@ -637,14 +665,14 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 
 	tests := []struct {
 		desc          string
-		components    []AutoComponent
+		components    []*AutoComponent
 		wantErr       assert.ErrorAssertionFunc
 		errContains   string
 		wantEdgeCount map[string]int // number of dependencies for each component
 	}{
 		{
 			desc: "valid - single producer and single consumer",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewSingleConsumer),
 			},
@@ -656,7 +684,7 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 		},
 		{
 			desc: "valid - multiple producers with slice consumer",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSliceConsumer),
@@ -670,7 +698,7 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 		},
 		{
 			desc: "valid - consumer with no dependencies",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewNoDepsConsumer),
 			},
 			wantErr: assert.NoError,
@@ -680,7 +708,7 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 		},
 		{
 			desc: "valid - self-dependent component (dependency ignored)",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewSelfDependentProducer),
 			},
 			wantErr: assert.NoError,
@@ -690,7 +718,7 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 		},
 		{
 			desc: "error - single consumer with multiple producers",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -700,7 +728,7 @@ func Test_Composite_dependencyGraph(t *testing.T) {
 		},
 		{
 			desc: "error - multiple single consumers with multiple producers",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -753,7 +781,7 @@ func Test_Composite_dependencyGraph_ErrorMessages(t *testing.T) {
 
 	t.Run("error message includes correct component names and suggestion", func(t *testing.T) {
 		composite := &Composite{
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -765,11 +793,11 @@ func Test_Composite_dependencyGraph_ErrorMessages(t *testing.T) {
 		_, err := composite.dependencyGraph()
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "SingleConsumer")
-		assert.Contains(t, err.Error(), "*service.SharedData")
-		assert.Contains(t, err.Error(), "[ProducerA ProducerB]")
-		assert.Contains(t, err.Error(), "Consider changing \"SingleConsumer\" to consume []*service.SharedData")
-		assert.Contains(t, err.Error(), "only the last produced item will be used")
+		assert.ErrorContains(t, err, "SingleConsumer")
+		assert.ErrorContains(t, err, "*service.SharedData")
+		assert.ErrorContains(t, err, "[ProducerA ProducerB]")
+		assert.ErrorContains(t, err, "Consider changing \"SingleConsumer\" to consume []*service.SharedData")
+		assert.ErrorContains(t, err, "only the last produced item will be used")
 	})
 }
 
@@ -778,7 +806,7 @@ func Test_Composite_dependencyGraph_Integration(t *testing.T) {
 
 	t.Run("integration with Apply method - error propagation", func(t *testing.T) {
 		composite := &Composite{
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -798,7 +826,7 @@ func Test_Composite_dependencyGraph_Integration(t *testing.T) {
 
 	t.Run("integration with Apply method - success case", func(t *testing.T) {
 		composite := &Composite{
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewSliceConsumer),
 			},
@@ -819,8 +847,8 @@ func Test_Composite_dependencyGraph_Integration(t *testing.T) {
 
 // mustAnalyzeConstructor is a helper function that calls analyzeConstructor and panics on error
 // This is useful for test setup where we know the constructor should be valid
-func mustAnalyzeConstructor(ctor any) AutoComponent {
-	component, err := analyzeConstructor(ctor)
+func mustAnalyzeConstructor(ctor any) *AutoComponent {
+	component, err := constructor(ctor, nil).Analyze()
 	if err != nil {
 		panic(fmt.Sprintf("failed to analyze constructor: %v", err))
 	}
@@ -870,7 +898,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 
 	tests := []struct {
 		desc          string
-		components    []AutoComponent
+		components    []*AutoComponent
 		edges         map[string][]string
 		wantErr       assert.ErrorAssertionFunc
 		errContains   string
@@ -879,14 +907,14 @@ func Test_Composite_executeGraph(t *testing.T) {
 	}{
 		{
 			desc:          "empty graph - no components",
-			components:    []AutoComponent{},
+			components:    []*AutoComponent{},
 			edges:         map[string][]string{},
 			wantErr:       assert.NoError,
 			expectedOrder: []string{},
 		},
 		{
 			desc: "single component - no dependencies",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewNoDepsConsumer),
 			},
 			edges: map[string][]string{
@@ -897,7 +925,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "linear dependency chain - A -> B -> C",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewSingleConsumer),
 				mustAnalyzeConstructor(NewNoDepsConsumer),
@@ -912,7 +940,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "diamond dependency - A -> B,C -> D",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -929,7 +957,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "complex graph with multiple dependency levels",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -948,7 +976,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "parallel independent components",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewNoDepsConsumer),
@@ -964,7 +992,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "circular dependency - A -> B -> A",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 			},
@@ -977,7 +1005,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "circular dependency in complex graph - A -> B -> C -> A",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -992,7 +1020,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "execution error from component",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewSingleConsumer),
 			},
@@ -1011,7 +1039,7 @@ func Test_Composite_executeGraph(t *testing.T) {
 		},
 		{
 			desc: "execution error propagates correctly",
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewProducerA),
 				mustAnalyzeConstructor(NewProducerB),
 				mustAnalyzeConstructor(NewSingleConsumer),
@@ -1086,7 +1114,7 @@ func Test_Composite_executeGraph_TopologicalSort(t *testing.T) {
 
 	t.Run("verifies correct topological ordering", func(t *testing.T) {
 		// Create a complex dependency graph to test topological sorting
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewProducerA),      // Level 0
 			mustAnalyzeConstructor(NewProducerB),      // Level 0
 			mustAnalyzeConstructor(NewSingleConsumer), // Level 1 (depends on ProducerA)
@@ -1109,9 +1137,7 @@ func Test_Composite_executeGraph_TopologicalSort(t *testing.T) {
 			sliceResults: make(map[reflect.Type][]any),
 			executor:     mockExecutor,
 		}
-
-		err := composite.executeGraph(edges)
-		require.NoError(t, err)
+		require.NoError(t, composite.executeGraph(edges))
 
 		order := mockExecutor.GetExecutionOrder()
 
@@ -1137,7 +1163,7 @@ func Test_Composite_executeGraph_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	t.Run("stops execution on first error", func(t *testing.T) {
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewProducerA),
 			mustAnalyzeConstructor(NewProducerB),
 			mustAnalyzeConstructor(NewSingleConsumer),
@@ -1176,7 +1202,7 @@ func Test_Composite_executeGraph_ErrorHandling(t *testing.T) {
 	})
 
 	t.Run("reports circular dependency with component name", func(t *testing.T) {
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewProducerA),
 			mustAnalyzeConstructor(NewProducerB),
 		}
@@ -1209,7 +1235,7 @@ func Test_Composite_executeGraph_EdgeCases(t *testing.T) {
 	t.Parallel()
 
 	t.Run("handles component not in edges map", func(t *testing.T) {
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewProducerA),
 			mustAnalyzeConstructor(NewProducerB), // This won't be in edges
 		}
@@ -1236,7 +1262,7 @@ func Test_Composite_executeGraph_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("handles dependencies on non-existent components", func(t *testing.T) {
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewProducerA),
 		}
 
@@ -1265,7 +1291,7 @@ func Test_Composite_executeGraph_Integration(t *testing.T) {
 
 	t.Run("integration with real ComponentExecutor", func(t *testing.T) {
 		// Test that executeGraph works with the real Composite.ExecuteComponent
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			mustAnalyzeConstructor(NewNoDepsConsumer),
 		}
 
@@ -1417,7 +1443,7 @@ func Test_Composite_ExecuteComponent(t *testing.T) {
 
 	tests := []struct {
 		desc              string
-		component         AutoComponent
+		component         *AutoComponent
 		prePopulateTypes  map[reflect.Type]any
 		prePopulateSlices map[reflect.Type][]any
 		wantErr           assert.ErrorAssertionFunc
@@ -1532,7 +1558,7 @@ func Test_Composite_ExecuteComponent(t *testing.T) {
 				}
 			}
 
-			err := composite.ExecuteComponent(&tc.component)
+			err := composite.ExecuteComponent(tc.component)
 			if !tc.wantErr(t, err) {
 				return
 			}
@@ -1582,7 +1608,7 @@ func Test_Composite_ExecuteComponent_ThreadSafety(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				component := mustAnalyzeConstructor(NewSingleConsumer)
-				err := composite.ExecuteComponent(&component)
+				err := composite.ExecuteComponent(component)
 				assert.NoError(t, err)
 			}()
 		}
@@ -1606,7 +1632,7 @@ func Test_Composite_ExecuteComponent_InterfaceHandling(t *testing.T) {
 
 		// Execute component that needs the interface
 		component := mustAnalyzeConstructor(NewTestInterfaceConsumerComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -1631,9 +1657,7 @@ func Test_Composite_ExecuteComponent_InterfaceHandling(t *testing.T) {
 
 		// Execute component that needs the interface
 		component := mustAnalyzeConstructor(NewTestInterfaceConsumerComponent)
-		err := composite.ExecuteComponent(&component)
-
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(component))
 
 		// Should use the first implementation found
 		result, exists := composite.results[reflect.TypeOf("")]
@@ -1651,11 +1675,11 @@ func Test_Composite_ExecuteComponent_ErrorHandling(t *testing.T) {
 		component := mustAnalyzeConstructor(NewNoDepsConsumer)
 
 		// Modify the component to have invalid state
-		invalidComponent := AutoComponent{
-			component: component.component,
-			name:      "InvalidComponent",
-			runMethod: component.runMethod,
-			produces:  nil, // This is valid - some components don't produce anything
+		invalidComponent := &AutoComponent{
+			component:   component.component,
+			name:        "InvalidComponent",
+			applyMethod: component.applyMethod,
+			produces:    nil, // This is valid - some components don't produce anything
 		}
 
 		composite := &Composite{
@@ -1664,7 +1688,7 @@ func Test_Composite_ExecuteComponent_ErrorHandling(t *testing.T) {
 		}
 
 		// This should execute successfully even with nil produces
-		err := composite.ExecuteComponent(&invalidComponent)
+		err := composite.ExecuteComponent(invalidComponent)
 		assert.NoError(t, err)
 	})
 
@@ -1675,7 +1699,7 @@ func Test_Composite_ExecuteComponent_ErrorHandling(t *testing.T) {
 			sliceResults: make(map[reflect.Type][]any),
 		}
 
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ErrorProducerComponent")
 		assert.Contains(t, err.Error(), "assert.AnError")
@@ -1688,7 +1712,7 @@ func Test_Composite_ExecuteComponent_ErrorHandling(t *testing.T) {
 			sliceResults: make(map[reflect.Type][]any),
 		}
 
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 		assert.NoError(t, err)
 	})
 }
@@ -1703,7 +1727,7 @@ func Test_Composite_ExecuteComponent_ResultStorage(t *testing.T) {
 			sliceResults: make(map[reflect.Type][]any),
 		}
 
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 		require.NoError(t, err)
 
 		expectedType := reflect.TypeOf(&SharedData{})
@@ -1735,8 +1759,7 @@ func Test_Composite_ExecuteComponent_ResultStorage(t *testing.T) {
 
 		// Execute component that produces the same type
 		component := mustAnalyzeConstructor(NewProducerA)
-		err := composite.ExecuteComponent(&component)
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(component))
 
 		// Check that it was appended
 		sliceResult := composite.sliceResults[expectedType]
@@ -1752,9 +1775,7 @@ func Test_Composite_ExecuteComponent_ResultStorage(t *testing.T) {
 			results:      make(map[reflect.Type]any),
 			sliceResults: make(map[reflect.Type][]any),
 		}
-
-		err := composite.ExecuteComponent(&component)
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(component))
 
 		// Should have no stored results because Apply() returns nothing
 		assert.Empty(t, composite.results)
@@ -1833,7 +1854,7 @@ func Test_ChartFactory(t *testing.T) {
 	t.Run("ChartFactory is injected correctly", func(t *testing.T) {
 		// Test that the chartFactory can be analyzed and used in DI
 
-		component, err := analyzeConstructor(newChartFactory)
+		component, err := constructor(newChartFactory, nil).Analyze()
 		require.NoError(t, err)
 
 		// Should produce ChartFactory interface type
@@ -1848,7 +1869,7 @@ func Test_ChartFactory_Integration(t *testing.T) {
 
 	t.Run("component can declare ChartFactory dependency", func(t *testing.T) {
 		// Test that components can declare ChartFactory as a dependency
-		component, err := analyzeConstructor(NewChartFactoryConsumerComponent)
+		component, err := constructor(NewChartFactoryConsumerComponent, nil).Analyze()
 		require.NoError(t, err)
 
 		// Should consume ChartFactory interface
@@ -1862,13 +1883,13 @@ func Test_ChartFactory_Integration(t *testing.T) {
 		mockFactory := &mockChartFactory{}
 
 		// Create components that demonstrate the ChartFactory usage
-		components := []AutoComponent{
+		components := []*AutoComponent{
 			// Provider of ChartFactory
 			{
-				component: mockFactory,
-				name:      "MockChartFactory",
-				runMethod: reflect.TypeOf(mockFactory).Method(0), // Apply method
-				produces:  reflect.TypeOf((*ChartFactory)(nil)).Elem(),
+				component:   mockFactory,
+				name:        "MockChartFactory",
+				applyMethod: reflect.TypeOf(mockFactory).Method(0), // Apply method
+				produces:    reflect.TypeOf((*ChartFactory)(nil)).Elem(),
 			},
 			mustAnalyzeConstructor(NewChartFactoryConsumerComponent),
 		}
@@ -1882,7 +1903,7 @@ func Test_ChartFactory_Integration(t *testing.T) {
 
 		// Execute the factory provider first
 		factoryComponent := components[0]
-		err := composite.ExecuteComponent(&factoryComponent)
+		err := composite.ExecuteComponent(factoryComponent)
 		require.NoError(t, err)
 
 		// Verify ChartFactory was stored
@@ -1892,7 +1913,7 @@ func Test_ChartFactory_Integration(t *testing.T) {
 
 		// Execute the consumer component
 		consumerComponent := components[1]
-		err = composite.ExecuteComponent(&consumerComponent)
+		err = composite.ExecuteComponent(consumerComponent)
 		require.NoError(t, err)
 
 		// Verify the consumer successfully used the factory
@@ -2067,7 +2088,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
 
 		// Execute component that consumes slice of interface
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2090,7 +2111,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
 
 		// Execute component that consumes slice of interface with no implementations available
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2116,7 +2137,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
 
 		// Execute component that consumes slice of interface
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2147,7 +2168,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
 
 		// Execute component that consumes both single and slice
 		component := mustAnalyzeConstructor(NewHybridConsumerComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2181,7 +2202,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces(t *testing.T) {
 		composite.results[reflect.TypeOf(slackProcessor)] = slackProcessor
 
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2218,7 +2239,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_EdgeCases(t *testing.T) {
 		composite.results[reflect.TypeOf(smsProcessor)] = smsProcessor
 
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
+		err := composite.ExecuteComponent(component)
 
 		require.NoError(t, err)
 
@@ -2246,9 +2267,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_EdgeCases(t *testing.T) {
 		composite.sliceResults[reflect.TypeOf(emailProcessor)] = []any{emailProcessor}
 
 		component := mustAnalyzeConstructor(NewMessageRouterComponent)
-		err := composite.ExecuteComponent(&component)
-
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(component))
 
 		// Should deduplicate and include the implementation only once
 		result, exists := composite.results[reflect.TypeOf("")]
@@ -2272,7 +2291,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_Integration(t *testing.T)
 		// 3. Verify the entire chain works together
 
 		composite := &Composite{
-			components: []AutoComponent{
+			components: []*AutoComponent{
 				mustAnalyzeConstructor(NewEmailProcessor),
 				mustAnalyzeConstructor(NewSMSProcessor),
 				mustAnalyzeConstructor(NewSlackProcessor),
@@ -2285,7 +2304,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_Integration(t *testing.T)
 
 		// Execute all producer components
 		for i := 0; i < 3; i++ { // First 3 are producers
-			err := composite.ExecuteComponent(&composite.components[i])
+			err := composite.ExecuteComponent(composite.components[i])
 			require.NoError(t, err)
 		}
 
@@ -2304,8 +2323,7 @@ func Test_Composite_ExecuteComponent_SliceOfInterfaces_Integration(t *testing.T)
 
 		// Execute the consumer component
 		consumerComponent := composite.components[3]
-		err := composite.ExecuteComponent(&consumerComponent)
-		require.NoError(t, err)
+		require.NoError(t, composite.ExecuteComponent(consumerComponent))
 
 		// Verify the consumer got all implementations
 		result, exists := composite.results[reflect.TypeOf("")]
@@ -2703,7 +2721,7 @@ func Test_newChartContext(t *testing.T) {
 		chartCtx := contextFactory()
 
 		assert.NotNil(t, chartCtx)
-		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.String())
+		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.Name())
 
 		// Verify the context can be retrieved and has the expected value
 		retrievedCtx := chartCtx.Apply()
@@ -2726,7 +2744,7 @@ func Test_chartContext_Apply_and_String(t *testing.T) {
 
 	t.Run("String returns expected identifier", func(t *testing.T) {
 		chartCtx := &chartContext{}
-		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.String())
+		assert.Equal(t, "sdk.composite.builtin.chartContext", chartCtx.Name())
 	})
 }
 
@@ -2803,7 +2821,7 @@ func Test_chartFactory_Apply(t *testing.T) {
 
 	t.Run("String returns expected identifier", func(t *testing.T) {
 		factory := &chartFactory{}
-		assert.Equal(t, "sdk.composite.builtin.chartFactory", factory.String())
+		assert.Equal(t, "sdk.composite.builtin.chartFactory", factory.Name())
 	})
 }
 
@@ -2831,7 +2849,7 @@ func Test_CompositeSet_Apply(t *testing.T) {
 
 		// This should panic due to missing CDK8s construct in context
 		assert.Panics(t, func() {
-			cs.Apply(ctx, NewNoDepsConsumer)
+			_, _ = cs.Apply(ctx, NewNoDepsConsumer)
 		}, "should panic when CDK8s construct is not in context")
 	})
 }
@@ -2864,12 +2882,12 @@ func Test_registerComponents(t *testing.T) {
 
 		// Create a minimal fx.App to test the registration
 		app := fx.New(option, fx.NopLogger)
-
 		assert.NotNil(t, app)
 
+		ctx := t.Context()
 		// The app should start and stop without error for valid components
-		startCtx, cancel := context.WithCancel(t.Context())
-		defer cancel()
+		startCtx, cancel := context.WithCancel(ctx)
+		t.Cleanup(cancel)
 
 		err := app.Start(startCtx)
 		// Might fail due to missing dependencies, but should not panic
@@ -2877,7 +2895,7 @@ func Test_registerComponents(t *testing.T) {
 			assert.NotContains(t, err.Error(), "panic")
 		}
 
-		app.Stop(t.Context())
+		assert.NoError(t, app.Stop(ctx))
 	})
 
 	t.Run("handles errors and continues processing", func(t *testing.T) {
@@ -2900,7 +2918,7 @@ func Test_registerComponents(t *testing.T) {
 		err := app.Start(t.Context())
 		assert.Error(t, err, "should error due to invalid components")
 
-		app.Stop(t.Context())
+		assert.NoError(t, app.Stop(t.Context()))
 	})
 }
 
