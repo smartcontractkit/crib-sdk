@@ -81,7 +81,7 @@ func TestCompositeErrRegistration(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "sdk.composite.ErrScalar")
 	assert.ErrorContains(t, err, "missing Apply method")
-	assert.ErrorContains(t, err, ".NewSimpleProducer")
+	assert.ErrorContains(t, err, ".SimpleProducer")
 	assert.ErrorContains(t, err, "with non-zero required arguments")
 	assert.Nil(t, res)
 	t.Logf("Got error: %v", err)
