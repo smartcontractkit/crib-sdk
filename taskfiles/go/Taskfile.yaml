@@ -6,7 +6,8 @@ version: "3"
 
 tasks:
   test:
-    desc: Run go tests. Use SHORT=true for short tests only.
+    desc: |
+      Run go tests. Use SHORT=true for short tests only. Use UPDATE_SNAPS=true to update snapshots.
     vars:
       SHORT: '{{ .SHORT | default "false" }}'
     cmds:
@@ -14,22 +15,6 @@ tasks:
         asdf exec go test -fullpath -mod=readonly -count 1 -shuffle=on \
         {{ if eq .SHORT "true" }}-short{{ end }} \
         --tags=integration,smoke -coverprofile=coverage.txt -covermode=atomic ./...
-
-  # go-snaps, by default creates files with executable bits and this os flagged by pre-commit validation as it is validating
-  # all executables in the repo
-  test:snapshots:fix-chmod:
-    desc: Remove executable bit from go-snap created snapshot files
-    cmd: |
-      #!/bin/sh
-
-      find . -type f -name "*.snap" -exec sh -c '
-        for file do
-        if [ -x "$file" ]; then
-          chmod -x "$file"
-          echo "Removed executable bit: $file"
-        fi
-      done
-      ' sh {} +;
 
   tidy:
     desc: Run go mod tidy.
