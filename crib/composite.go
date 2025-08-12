@@ -38,7 +38,7 @@ import (
 //		// factory provides some lightweight helper methods for creating charts and alleviates some
 //		// boilerplate of getting the parent construct, generating resource IDs, and creating the chart.
 //		// Example:
-//		// chart := factory.CreateChart("my-chart", m)
+//		// chart := factory.NewChart("my-chart", m)
 //	}
 //
 // Example:
