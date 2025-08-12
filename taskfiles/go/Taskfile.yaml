@@ -13,7 +13,7 @@ tasks:
     cmds:
       - |
         asdf exec go test -fullpath -mod=readonly -count 1 -shuffle=on \
-        {{ if eq .SHORT "true" }}-short{{ end }} \
+        -short={{ .SHORT }} \
         --tags=integration,smoke -coverprofile=coverage.txt -covermode=atomic ./...
 
   tidy:
