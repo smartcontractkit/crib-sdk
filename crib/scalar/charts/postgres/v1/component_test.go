@@ -51,7 +51,7 @@ func TestChartComponent_postgres(t *testing.T) {
 	must.NoError(err)
 	must.NotNil(component)
 
-	raw := *app.SynthYaml()
+	raw := *app.DisableSnapshots().SynthYaml()
 	for manifest := range unmarshalManifests(t, []byte(raw)) {
 		_, err = yaml.Marshal(manifest)
 		assert.NoError(t, err)

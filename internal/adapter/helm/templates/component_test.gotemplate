@@ -31,27 +31,25 @@ func {{ printf "TestChartComponent_%s" .PackageName }}(t *testing.T) {
         t.Skip("Skipping test in short mode.")
     }
     t.Parallel()
-	ctx := t.Context()
     must := require.New(t)
+	app := internal.NewTestApp(t)
 
-	loader, err := internal.NewHelmValuesLoader(ctx, "testdata/values.yaml")
+	loader, err := internal.NewHelmValuesLoader(app.Context(), "testdata/values.yaml")
 	if err != nil {
 		t.Logf("[Important] Unable to run tests for HelmChart %s, the required test data is missing.", chartName)
 		t.SkipNow()
 	}
 
-    app := internal.NewTestApp(t)
-    ctx = internal.ContextWithConstruct(ctx, app.Chart)
     props := &helmchart.ChartProps{
         Namespace: "test-ns-" + chartName,
 		ValuesLoader: loader,
     }
 
-    component, err := Component(props)(ctx)
+    component, err := Component(props)(app.Context())
     must.NoError(err)
     must.NotNil(component)
 
-	raw := *app.SynthYaml()
+	raw := *app.DisableSnapshots().SynthYaml()
 	for manifest := range unmarshalManifests(t, []byte(raw)) {
 		_, err = yaml.Marshal(manifest)
 		assert.NoError(t, err)

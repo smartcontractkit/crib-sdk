@@ -107,7 +107,6 @@ func TestNewOCIHelmChart(t *testing.T) {
 	require.NoError(t, err)
 
 	app := internal.NewTestApp(t)
-	ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
 
 	testProps := &ChartProps{
 		Name:        "test-chart",
@@ -119,11 +118,11 @@ func TestNewOCIHelmChart(t *testing.T) {
 		Version:     "16.7.10",
 	}
 
-	component, err := New(ctx, testProps)
+	component, err := New(app.Context(), testProps)
 	is.NoError(err)
 	is.NotNil(component)
 
-	raw := *app.SynthYaml()
+	raw := *app.DisableSnapshots().SynthYaml()
 	manifests := unmarshalManifests([]byte(raw))
 	matchers := []match.YAMLMatcher{
 		match.
