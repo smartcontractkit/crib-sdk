@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/instance: ingress-nginx
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx
-    app.kubernetes.io/version: 1.13.0
+    app.kubernetes.io/version: 1.13.1
   name: ingress-nginx-controller
   namespace: ingress-nginx
 spec:
@@ -28,7 +28,7 @@ spec:
         app.kubernetes.io/instance: ingress-nginx
         app.kubernetes.io/name: ingress-nginx
         app.kubernetes.io/part-of: ingress-nginx
-        app.kubernetes.io/version: 1.13.0
+        app.kubernetes.io/version: 1.13.1
     spec:
       automountServiceAccountToken: true
       containers:
@@ -54,7 +54,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: LD_PRELOAD
               value: /usr/local/lib/libmimalloc.so
-          image: registry.k8s.io/ingress-nginx/controller:v1.13.0@sha256:dc75a7baec7a3b827a5d7ab0acd10ab507904c7dad692365b3e3b596eca1afd2
+          image: registry.k8s.io/ingress-nginx/controller:v1.13.1@sha256:37e489b22ac77576576e52e474941cd7754238438847c1ee795ad6d59c02b12a
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
