@@ -1,9 +1,9 @@
  <!-- x-release-please-start-version -->
-# v0.4.0 crib-sdk-License-grants
+# v0.5.0 crib-sdk-License-grants
 
 Additional Use Grant(s):
 
-You may make use of the crib-sdk v0.4.0 (which is available subject to the license
+You may make use of the crib-sdk v0.5.0 (which is available subject to the license
 here, the “Licensed Work”) solely for purposes of
 <!-- x-release-please-end -->
 
