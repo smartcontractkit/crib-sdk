@@ -22,8 +22,9 @@ type TestApp struct {
 	cdk8s.App
 	cdk8s.Chart
 
-	t     *testing.T
-	ctxFn func() context.Context
+	t                *testing.T
+	ctxFn            func() context.Context
+	disableSnapshots bool // disableSnapshots is used to disable snapshots in tests that do not require them.
 }
 
 // NewTestApp creates a new test Chart scope for use in unit tests.
@@ -64,6 +65,13 @@ func (app *TestApp) Context() context.Context {
 	return app.ctxFn()
 }
 
+// DisableSnapshots disables snapshots for the TestApp. This is useful for tests
+// where snapshots are not needed or desired, such as when output may be indeterministic.
+func (app *TestApp) DisableSnapshots() *TestApp {
+	app.disableSnapshots = true
+	return app
+}
+
 // SynthYaml calls the SynthAndSnapYamls method to synthesize the YAML output and
 // write the snapshots into separate files.
 //
@@ -76,6 +84,9 @@ func (app *TestApp) SynthYaml() *string {
 func SynthAndSnapYamls(t *testing.T, app *TestApp) *string {
 	require.NotNil(t, app, "app must not be nil")
 	raw := app.App.SynthYaml()
+	if app.disableSnapshots {
+		return raw
+	}
 	for obj, err := range domain.UnmarshalDocument([]byte(dry.FromPtr(raw))) {
 		if err != nil {
 			assert.NoError(t, err)
