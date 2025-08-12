@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"path"
 	"reflect"
 	"runtime"
@@ -20,28 +21,25 @@ import (
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
 
-var (
-	// stringerType is a sync.OnceValue that lazily initializes the reflect.Type for fmt.Stringer interface and stores
-	// it for future use. This is used to avoid repeated calls to reflect.TypeOf, which can be expensive.
-	stringerType = sync.OnceValue(func() reflect.Type {
-		return reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
-	})
-
-	// voidValue is a sync.OnceValue that lazily initializes the reflect.Value for an empty struct.
-	// This is used to avoid repeated calls to reflect.ValueOf, which can be expensive.
-	voidValue = sync.OnceValue(func() reflect.Value {
-		return reflect.ValueOf(struct{}{})
-	})
-)
+// voidValue is the [reflect.Value] for an empty struct.
+var voidValue = reflect.ValueOf(struct{}{})
 
 type (
 	AutoComponent struct {
 		component   any
-		name        string
-		runMethod   reflect.Method
+		name        string         // The name of the component, derived from the constructor or component type.
+		applyMethod reflect.Method // The Apply method of the component.
 		produces    reflect.Type
 		consumes    []reflect.Type
 		isSliceType bool // for collecting multiple instances like []GroupResult
+	}
+
+	// Constructor is a resolved Component constructor that can be used to create a new instance of a component.
+	// For example, the constructor is the result of `func() *MyComponent` or `func() (*MyComponent, error)`.
+	Constructor struct {
+		component any                      // The actual component instance created by the constructor.
+		namer     func(name string) string // The name of the component, derived from the constructor or component type.
+		cType     reflect.Type             // The type of the component, used for reflection.
 	}
 
 	// ComponentExecutor defines the interface for executing individual components.
@@ -57,7 +55,7 @@ type (
 		executor     ComponentExecutor
 		results      map[reflect.Type]any
 		sliceResults map[reflect.Type][]any
-		components   []AutoComponent
+		components   []*AutoComponent
 		mu           sync.RWMutex
 	}
 
@@ -125,7 +123,7 @@ func (c *chartContext) Apply() context.Context {
 	return c.instanceCtx()
 }
 
-func (c *chartContext) String() string {
+func (c *chartContext) Name() string {
 	return "sdk.composite.builtin.chartContext"
 }
 
@@ -153,7 +151,7 @@ func (c *chartFactory) Apply(ctx context.Context) ChartFactory {
 	return c
 }
 
-func (c *chartFactory) String() string {
+func (c *chartFactory) Name() string {
 	return "sdk.composite.builtin.chartFactory"
 }
 
@@ -205,7 +203,7 @@ func (c *CompositeSet) Apply(ctx context.Context, ctors ...any) (port.Component,
 		)
 }
 
-func (c *Composite) Apply(ctx context.Context) error {
+func (c *Composite) Apply(context.Context) error {
 	graph, err := c.dependencyGraph()
 	if err != nil {
 		return fmt.Errorf("building dependency graph: %w", err)
@@ -222,10 +220,10 @@ func registerComponents(components ...any) fx.Option {
 	c.executor = c
 
 	var registrationErrs error
-	for _, ctor := range components {
-		component, err := analyzeConstructor(ctor)
+	for component, err := range Components(components...) {
 		if err != nil {
 			registrationErrs = errors.Join(registrationErrs, err)
+			continue
 		}
 		c.components = append(c.components, component)
 	}
@@ -237,50 +235,143 @@ func registerComponents(components ...any) fx.Option {
 	})
 }
 
+// Components returns an iterable sequence of AutoComponent instances based on the provided constructors.
+//
+// Use:
+//
+//	for comp, err := range Components(ctors...) {
+//		if err != nil {
+//			// Handle error
+//			continue
+//		}
+//		// Use comp, which is an *AutoComponent instance
+//	}
+func Components(ctors ...any) iter.Seq2[*AutoComponent, error] {
+	nameFn := func(idx int) func(string) string {
+		return func(s string) string {
+			return fmt.Sprintf("%d::%s", idx, s)
+		}
+	}
+	return func(yield func(*AutoComponent, error) bool) {
+		for idx, ctor := range ctors {
+			autoComp, err := dry.FirstError2(
+				func() (*AutoComponent, error) {
+					return nil, isCallable(ctor)
+				},
+				func() (*AutoComponent, error) {
+					return constructor(ctor, nameFn(idx)).Analyze()
+				},
+			)
+			if !yield(autoComp, err) {
+				return
+			}
+		}
+	}
+}
+
 // isCallable checks if the provided argument is a callable function with no required parameters.
+//
+// Examples of valid constructors:
+//   - func() *MyComponent
+//   - func() (*MyComponent, error)
+//   - func() func(v any) func() *MyComponent // closure with no required parameters
+//   - func() func(v any) func() (*MyComponent, error) // closure with no required parameters
 func isCallable(ctor any) error {
 	// check if the constructor is truly nil without a known type.
 	// If the nil has a type it will fall through to the next check.
 	if ctor == nil {
 		return errors.New("cannot register nil component")
 	}
+
 	ctorType := reflect.TypeOf(ctor)
-	currentName := componentName(ctor, ctorType)
 	if ctorType.Kind() != reflect.Func {
-		return fmt.Errorf("cannot register component %q, component must be a callable function, have %T", currentName, ctor)
+		return fmt.Errorf("cannot register component of type %T, component must be a callable function", ctor)
 	}
 	if ctorType.NumIn() > 0 {
-		return fmt.Errorf("cannot register component constructor %q with non-zero required arguments (is the component a closure?)", currentName)
+		return fmt.Errorf("cannot register component of type %T with non-zero required arguments (is the component a closure?)", ctor)
 	}
 	return nil
 }
 
-func analyzeConstructor(ctor any) (AutoComponent, error) {
-	if err := isCallable(ctor); err != nil {
-		return AutoComponent{}, err
+// constructor returns a new Constructor by resolving the constructor function.
+func constructor(v any, namerFn func(v string) string) *Constructor {
+	if v == nil {
+		return nil
 	}
-
-	// Call constructor to get component instance
-	ctorValue := reflect.ValueOf(ctor)
-	results := ctorValue.Call(nil)
+	// Call the constructor to get the component instance.
+	vValue := reflect.ValueOf(v)
+	results := vValue.Call(nil)
 	component := results[0].Interface()
+	// TODO(polds): Handle error return value if it exists.
+	cType := reflect.TypeOf(component)
 
-	// Find Apply method
-	componentType := reflect.TypeOf(component)
-	runMethod, exists := componentType.MethodByName("Apply")
-	name := componentName(ctor, componentType)
-	if !exists {
-		return AutoComponent{}, fmt.Errorf("cannot register component %q, does not implement Composite, missing Apply method", name)
+	return &Constructor{
+		component: component,
+		namer:     namerFn,
+		cType:     cType,
+	}
+}
+
+// Name returns a human-readable name for the component.
+// The name is determined by one of three methods (in order of precedence):
+//  1. If the component implements fmt.Stringer, use its String() method.
+//  2. If the component implements an interface with a Name() string method, use that for the name.
+//  3. If neither of the above, derive a name from the component's type information and the current function context.
+func (c *Constructor) Name() string {
+	if c == nil {
+		return ""
+	}
+	if c.namer == nil {
+		c.namer = func(name string) string {
+			return name
+		}
 	}
 
-	auto := AutoComponent{
-		component: component,
-		name:      name,
-		runMethod: runMethod,
+	// If the component implements fmt.Stringer, use its String() method to get a name.
+	if v, ok := c.component.(fmt.Stringer); ok {
+		return c.namer(v.String())
+	}
+	// Alternatively, if the component implements an interface that has a `Name() string` method, use that for the name.
+	if v, ok := c.component.(interface{ Name() string }); ok {
+		return c.namer(v.Name())
+	}
+
+	// Finally, attempt to derive a name by using the pointer, package path, and type name.
+	target := fmt.Sprintf("%s.%s", c.cType.PkgPath(), c.cType.Name())
+	if len(target) == 1 {
+		// Get current package name.
+		if pc, _, _, ok := runtime.Caller(1); ok {
+			fn := runtime.FuncForPC(pc)
+			if fn != nil {
+				target = path.Base(fn.Name())
+			}
+		}
+	}
+
+	// Rough format:
+	// 	0x104aa24c0#runtime.main@func() *fx.Example
+	return c.namer(fmt.Sprintf("%[1]p#%[2]s@%[1]T", c.component, target))
+}
+
+// Analyze determines the inputs and outputs of the component's Apply method.
+func (c *Constructor) Analyze() (*AutoComponent, error) {
+	if c == nil {
+		return nil, errors.New("cannot analyze nil component")
+	}
+	name := c.Name()
+	applyMethod, exists := c.cType.MethodByName("Apply")
+	if !exists {
+		return nil, fmt.Errorf("cannot register component %q, does not implement Composite, missing Apply method", name)
+	}
+
+	auto := &AutoComponent{
+		component:   c.component,
+		name:        name,
+		applyMethod: applyMethod,
 	}
 
 	// Analyze what the Apply method produces (return type).
-	methodType := runMethod.Type
+	methodType := applyMethod.Type
 	if methodType.NumOut() > 0 {
 		returnType := methodType.Out(0)
 		auto.produces = returnType
@@ -303,35 +394,7 @@ func analyzeConstructor(ctor any) (AutoComponent, error) {
 			//	fmt.Printf("Auto-detected: %s consumes %s\n", name, paramType)
 		}
 	}
-
 	return auto, nil
-}
-
-// componentName attempts to derive a human-readable name for the component. If the component type implements
-// the fmt.Stringer interface, it calls the String() method to get a name. Otherwise, it uses the function name
-// as returned by runtime.FuncForPC.
-func componentName(constructor any, componentType reflect.Type) string {
-	if !componentType.Implements(stringerType()) {
-		fn := reflect.ValueOf(constructor).Pointer()
-		return path.Base(runtime.FuncForPC(fn).Name())
-	}
-
-	// It implements fmt.Stringer, so create an instance and call String()
-	var instance reflect.Value
-
-	if componentType.Kind() == reflect.Ptr {
-		// For pointer types, create a new instance of the element type and take its address
-		elemType := componentType.Elem()
-		instance = reflect.New(elemType)
-	} else {
-		// For value types, create a zero value
-		instance = reflect.Zero(componentType)
-	}
-
-	// Call the String() method on the instance
-	stringMethod := instance.MethodByName("String")
-	results := stringMethod.Call(nil)
-	return results[0].String()
 }
 
 // dependencyGraph builds a directed graph of dependencies between components.
@@ -405,7 +468,7 @@ func (c *Composite) dependencyGraph() (map[string][]string, error) {
 func (c *Composite) executeGraph(edges map[string][]string) error {
 	executed := make(map[string]bool)
 	visiting := make(map[string]bool)
-	componentMap := make(map[string]AutoComponent)
+	componentMap := make(map[string]*AutoComponent)
 
 	for i := range c.components {
 		comp := c.components[i] // Capture range variable
@@ -436,7 +499,7 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 		if comp, exists := componentMap[name]; exists {
 			// TODO(COP-1232): Use a logger.
 			// fmt.Printf("Executing: %s\n", name)
-			if err := c.executor.ExecuteComponent(&comp); err != nil {
+			if err := c.executor.ExecuteComponent(comp); err != nil {
 				return err
 			}
 		}
@@ -462,7 +525,7 @@ func (c *Composite) executeGraph(edges map[string][]string) error {
 // execute components.
 func (c *Composite) ExecuteComponent(comp *AutoComponent) error {
 	// Prepare arguments for Run method
-	methodType := comp.runMethod.Type
+	methodType := comp.applyMethod.Type
 	args := []reflect.Value{reflect.ValueOf(comp.component)} // receiver
 
 	// Add parameters automatically, start at index 1 to skip the receiver.
@@ -475,8 +538,8 @@ func (c *Composite) ExecuteComponent(comp *AutoComponent) error {
 		args = append(args, paramValue)
 	}
 
-	// Execute the Run method
-	results := comp.runMethod.Func.Call(args)
+	// Execute the Apply method
+	results := comp.applyMethod.Func.Call(args)
 
 	// Try to find a returned error, if it exists. If it's not nil, return it.
 	for _, res := range results {
@@ -517,7 +580,7 @@ func (c *Composite) valueForType(paramType reflect.Type) (reflect.Value, error) 
 	case reflect.Interface:
 		implementations := c.findImplementations(paramType)
 		if len(implementations) == 0 {
-			return voidValue(), fmt.Errorf("missing dependency %s (no concrete type found that implements this interface)", paramType)
+			return voidValue, fmt.Errorf("missing dependency %s (no concrete type found that implements this interface)", paramType)
 		}
 		return implementations[0], nil
 
@@ -533,7 +596,7 @@ func (c *Composite) valueForType(paramType reflect.Type) (reflect.Value, error) 
 		c.mu.RUnlock()
 
 		if !exists {
-			return voidValue(), fmt.Errorf("no registered component provides missing dependency %s", paramType)
+			return voidValue, fmt.Errorf("no registered component provides missing dependency %s", paramType)
 		}
 		return reflect.ValueOf(value), nil
 	}
