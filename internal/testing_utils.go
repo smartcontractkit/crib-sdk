@@ -66,6 +66,8 @@ func (app *TestApp) Context() context.Context {
 
 // SynthYaml calls the SynthAndSnapYamls method to synthesize the YAML output and
 // write the snapshots into separate files.
+//
+//nolint:revive // SynthYaml matches the cdk8s method name.
 func (app *TestApp) SynthYaml() *string {
 	return SynthAndSnapYamls(app.t, app)
 }

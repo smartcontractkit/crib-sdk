@@ -3,7 +3,9 @@ package configmapv2
 import (
 	"errors"
 	"fmt"
+
 	"github.com/imdario/mergo"
+
 	"github.com/smartcontractkit/crib-sdk/internal/core/common/dry"
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )

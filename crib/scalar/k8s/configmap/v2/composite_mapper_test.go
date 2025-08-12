@@ -1,10 +1,90 @@
 package configmapv2
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/crib-sdk/crib"
+	"github.com/smartcontractkit/crib-sdk/internal"
+	"github.com/smartcontractkit/crib-sdk/internal/core/domain"
 )
+
+type FakeProducer struct {
+	Name      string
+	Namespace string
+}
+
+type FakeProducerResult struct {
+	Name      string
+	Namespace string
+}
+
+func NewFakeProducer(name, namespace string) func() *FakeProducer {
+	return func() *FakeProducer {
+		return &FakeProducer{
+			Name:      name,
+			Namespace: namespace,
+		}
+	}
+}
+
+func (p *FakeProducer) Validate(context.Context) error {
+	return nil
+}
+
+func (p *FakeProducer) Apply() *FakeProducerResult {
+	// no-op, return a FakeProducerResult.
+	return &FakeProducerResult{
+		Name:      p.Name,
+		Namespace: p.Namespace,
+	}
+}
+
+func (p *FakeProducerResult) String() string {
+	return "sdk.composite.FakeProducer"
+}
+
+// Implement the IConfigMap interface for the FakeProducer.
+func (p *FakeProducerResult) ConfigMap() *Component {
+	return &Component{
+		Name:      p.Name,
+		Namespace: p.Namespace,
+		Data: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+		AppName:     "fake-app",
+		AppInstance: "fake-app-instance",
+	}
+}
+
+func TestE2E(t *testing.T) {
+	t.Parallel()
+	internal.JSIIKernelMutex.Lock()
+	t.Cleanup(internal.JSIIKernelMutex.Unlock)
+
+	app := crib.NewTestApp(t)
+
+	composite := crib.NewComposite(
+		NewFakeProducer("cm-1", domain.DefaultNamespace),
+		NewFakeProducer("cm-2", domain.DefaultNamespace),
+		NewFakeProducer("cm-1", "test-namespace"),
+		Components(
+			WithAppName("test-app"),
+			WithAppInstance("test-app-123"),
+		),
+	)
+
+	res, err := composite(app.Context())
+	hasErr := assert.NoError(t, err, "expected no error when creating composite")
+	isNil := assert.NotNil(t, res, "expected composite to be created")
+	if !hasErr || !isNil {
+		return
+	}
+	app.SynthYaml()
+}
 
 type configMapImpl struct {
 	component *Component

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/crib-sdk/internal/core/service"
 	"maps"
 	"slices"
 
@@ -36,12 +35,14 @@ type (
 // If multiple ConfigMaps share a name and namespace, the values will be merged into a single ConfigMap.
 // Components support `ConfigMapOpt` functions to modify the ConfigMap before it is applied, such as coercing
 // the name or namespace. ConfigMapOpts are applied to all ConfigMaps found in the Composite context.
-func Components(opts ...ConfigMapOpt) *ComponentMapper {
-	cm := &ComponentMapper{
-		opts: make([]ConfigMapOpt, len(opts)),
+func Components(opts ...ConfigMapOpt) func() *ComponentMapper {
+	return func() *ComponentMapper {
+		cm := &ComponentMapper{
+			opts: make([]ConfigMapOpt, len(opts)),
+		}
+		copy(cm.opts, opts)
+		return cm
 	}
-	copy(cm.opts, opts)
-	return cm
 }
 
 // String returns the name of the component mapper.
@@ -56,7 +57,7 @@ func (m *ComponentMapper) String() string {
 // contain conflicting data.
 //
 // The resulting set of ConfigMaps is then applied using the Scalar ConfigMap methods.
-func (m *ComponentMapper) Apply(ctx context.Context, cf service.ChartFactory, cms []IConfigMap) error {
+func (m *ComponentMapper) Apply(ctx context.Context, cms []IConfigMap) error {
 	if len(cms) == 0 {
 		return nil // No ConfigMaps to apply.
 	}
@@ -68,12 +69,9 @@ func (m *ComponentMapper) Apply(ctx context.Context, cf service.ChartFactory, cm
 		return fmt.Errorf("mapping ConfigMaps: %w", err)
 	}
 
-	// Validate and Apply each ConfigMap.
+	// Apply each ConfigMap.
 	for _, c := range mapped {
-		if err := c.Validate(ctx); err != nil {
-			return err
-		}
-		if _, err := c.Apply(ctx, cf); err != nil {
+		if _, err := c.Apply(ctx); err != nil {
 			return err
 		}
 	}

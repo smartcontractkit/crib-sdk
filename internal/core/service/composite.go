@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/crib-sdk/internal/core/port"
 )
 
-// voidValue is the [reflect.Value] for an empty struct.
-var voidValue = reflect.ValueOf(struct{}{})
+// _voidValue is the [reflect.Value] for an empty struct.
+var _voidValue = reflect.ValueOf(struct{}{})
 
 type (
 	AutoComponent struct {
@@ -526,7 +526,7 @@ func (c *Composite) valueForType(paramType reflect.Type) (reflect.Value, error) 
 	case reflect.Interface:
 		implementations := c.findImplementations(paramType)
 		if len(implementations) == 0 {
-			return voidValue, fmt.Errorf("missing dependency %s (no concrete type found that implements this interface)", paramType)
+			return _voidValue, fmt.Errorf("missing dependency %s (no concrete type found that implements this interface)", paramType)
 		}
 		return implementations[0], nil
 
@@ -542,7 +542,7 @@ func (c *Composite) valueForType(paramType reflect.Type) (reflect.Value, error) 
 		c.mu.RUnlock()
 
 		if !exists {
-			return voidValue, fmt.Errorf("no registered component provides missing dependency %s", paramType)
+			return _voidValue, fmt.Errorf("no registered component provides missing dependency %s", paramType)
 		}
 		return reflect.ValueOf(value), nil
 	}

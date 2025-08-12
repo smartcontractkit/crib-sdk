@@ -49,7 +49,7 @@
 //			crib.ComponentSet(
 //				crib.NewComposite(
 //					myscalar.Scalar(),
-//					myscalar.Scalar(), // As an example, multiple Scalars can be used.
+//					// As an example, multiple Scalars can be used.
 //
 //					// The ConfigMap Mapper will automatically find all Scalars that implement IConfigMap
 //					// and apply any supplied ConfigMapOpts to them.
