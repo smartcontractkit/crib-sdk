@@ -81,16 +81,14 @@ bufferSize: 160MB
 			is := assert.New(t)
 
 			app := internal.NewTestApp(t)
-			ctx := internal.ContextWithConstruct(t.Context(), app.Chart)
-
 			testProps := tc.setupProps()
 
-			component, err := Component(testProps)(ctx)
+			component, err := Component(testProps)(app.Context())
 			tc.expectErr(t, err)
 			_ = tc.errContains != "" && is.ErrorContains(err, tc.errContains)
 			if err == nil {
 				is.NotNil(component)
-				internal.SynthAndSnapYamls(t, app)
+				app.SynthYaml()
 			}
 		})
 	}
