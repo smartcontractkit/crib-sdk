@@ -71,7 +71,7 @@ jobs:
 
       - name: Create issue for invalid commit message
         if: steps.check-author.outputs.is_human == 'true' && steps.validate-commit.outputs.is_valid == 'false'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |-
             // Inline the functionality of create-commit-issue.js
