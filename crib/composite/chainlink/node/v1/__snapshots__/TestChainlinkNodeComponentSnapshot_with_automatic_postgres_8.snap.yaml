@@ -79,7 +79,7 @@ spec:
               value: error
             - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
               value: pgaudit
-          image: docker.io/bitnami/postgresql:17.5.0-debian-12-r10
+          image: 925774240219.dkr.ecr.us-west-2.amazonaws.com/containers/debian-12/postgresql:17.6.0-debian-12-r18
           imagePullPolicy: IfNotPresent
           livenessProbe:
             exec:
@@ -104,7 +104,6 @@ spec:
                 - -e
                 - |
                   exec pg_isready -U "auto-postgres-node" -d "dbname=auto-postgres-node" -h 127.0.0.1 -p 5432
-                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
             failureThreshold: 6
             initialDelaySeconds: 5
             periodSeconds: 10

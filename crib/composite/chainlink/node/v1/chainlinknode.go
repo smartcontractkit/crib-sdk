@@ -171,6 +171,16 @@ func chainlinkNode(ctx context.Context, props crib.Props) (crib.Component, error
 			Namespace:   chainlinkProps.Namespace,
 			ReleaseName: postgresReleaseName,
 			Values: map[string]any{
+				"image": map[string]any{
+					"registry":   "925774240219.dkr.ecr.us-west-2.amazonaws.com",
+					"repository": "containers/debian-12/postgresql",
+					"tag":        "17.6.0-debian-12-r18",
+				},
+				"global": map[string]any{
+					"security": map[string]any{
+						"allowInsecureImages": true,
+					},
+				},
 				"fullnameOverride": postgresReleaseName,
 				"auth": map[string]any{
 					"enablePostgresUser": true,
@@ -359,7 +369,7 @@ func chainlinkNode(ctx context.Context, props crib.Props) (crib.Component, error
 						{
 							Name: dry.ToPtr("wait-for-db"),
 							// Uses the same image and approach as chainlink-cluster chart
-							Image:           dry.ToPtr("docker.io/bitnami/postgresql@sha256:6bea1699d088605204841b889fb79d7572030a36ec5731e736d73cd33018cc03"),
+							Image:           dry.ToPtr("925774240219.dkr.ecr.us-west-2.amazonaws.com/containers/debian-12/postgresql:17.6.0-debian-12-r18"),
 							ImagePullPolicy: dry.ToPtr("IfNotPresent"),
 							Command:         dry.PtrSlice([]string{"/bin/bash", "-c"}),
 							Args: dry.PtrSlice([]string{dry.RemoveIndentation(`

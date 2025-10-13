@@ -210,6 +210,16 @@ func AddPostgresWithWait(ctx context.Context, jdProps *Props) (pg, waitForDB cri
 		Namespace:   jdProps.Namespace,
 		ReleaseName: jdProps.dbInstanceName(),
 		Values: map[string]any{
+			"image": map[string]any{
+				"registry":   "925774240219.dkr.ecr.us-west-2.amazonaws.com",
+				"repository": "containers/debian-12/postgresql",
+				"tag":        "17.6.0-debian-12-r18",
+			},
+			"global": map[string]any{
+				"security": map[string]any{
+					"allowInsecureImages": true,
+				},
+			},
 			"fullnameOverride": jdProps.dbInstanceName(),
 		},
 	})(ctx)
